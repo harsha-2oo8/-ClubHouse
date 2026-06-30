@@ -1,0 +1,5 @@
+{
+  "buildCommand": "pnpm --filter @workspace/clubhouse run build",
+  "outputDirectory": "artifacts/clubhouse/dist",
+  "framework": "vite"
+}
