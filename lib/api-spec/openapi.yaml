@@ -1,22 +1,34 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: ClubHouse Multi-College Club Platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: users
+    description: User profiles and portfolios
+  - name: colleges
+    description: College registration and management
+  - name: projects
+    description: Project management and collaboration
+  - name: events
+    description: Hackathons, workshops, and college meetings
+  - name: notifications
+    description: Notification management
+  - name: admin
+    description: Super-admin operations
+  - name: dashboard
+    description: Dashboard aggregates
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +36,1449 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── USER PROFILE ──────────────────────────────────────────────────────────────
+  /users/me:
+    get:
+      operationId: getMyProfile
+      tags: [users]
+      summary: Get own profile
+      security: [{ clerk: [] }]
+      responses:
+        "200":
+          description: Profile returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateMyProfile
+      tags: [users]
+      summary: Update own profile
+      security: [{ clerk: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserProfileUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /users/{userId}:
+    get:
+      operationId: getUserProfile
+      tags: [users]
+      summary: Get any user's public profile
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Profile returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "404":
+          description: Not found
+
+  # ── COLLEGES ──────────────────────────────────────────────────────────────────
+  /colleges:
+    get:
+      operationId: listColleges
+      tags: [colleges]
+      summary: List all approved colleges
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of colleges
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/College"
+    post:
+      operationId: registerCollege
+      tags: [colleges]
+      summary: Register a new college (requires admin approval)
+      security: [{ clerk: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CollegeInput"
+      responses:
+        "201":
+          description: College registration submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/College"
+
+  /colleges/{collegeId}:
+    get:
+      operationId: getCollege
+      tags: [colleges]
+      summary: Get college details
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: College
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/College"
+
+  /colleges/{collegeId}/members:
+    get:
+      operationId: getCollegeMembers
+      tags: [colleges]
+      summary: List college members
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CollegeMember"
+
+  /colleges/{collegeId}/join:
+    post:
+      operationId: joinCollege
+      tags: [colleges]
+      summary: Request to join a college
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Join request submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollegeJoinRequest"
+
+  /colleges/{collegeId}/join-requests:
+    get:
+      operationId: getCollegeJoinRequests
+      tags: [colleges]
+      summary: List pending join requests (moderator/admin)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Pending join requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CollegeJoinRequest"
+
+  /colleges/{collegeId}/join-requests/{requestId}:
+    patch:
+      operationId: updateCollegeJoinRequest
+      tags: [colleges]
+      summary: Approve or reject a join request
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatusUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollegeJoinRequest"
+
+  /colleges/{collegeId}/moderator-applications:
+    get:
+      operationId: getModeratorApplications
+      tags: [colleges]
+      summary: List moderator applications (admin only)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ModeratorApplication"
+    post:
+      operationId: applyForModerator
+      tags: [colleges]
+      summary: Apply to become club moderator
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModeratorApplicationInput"
+      responses:
+        "201":
+          description: Application submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModeratorApplication"
+
+  /colleges/{collegeId}/moderator-applications/{applicationId}:
+    patch:
+      operationId: updateModeratorApplication
+      tags: [colleges]
+      summary: Approve or reject moderator application (admin)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatusUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModeratorApplication"
+
+  /colleges/{collegeId}/members/{userId}/role:
+    patch:
+      operationId: updateMemberRole
+      tags: [colleges]
+      summary: Update a member's role (moderator)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleUpdate"
+      responses:
+        "200":
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollegeMember"
+
+  /colleges/{collegeId}/meetings:
+    get:
+      operationId: getCollegeMeetings
+      tags: [colleges]
+      summary: List college club meetings
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Meetings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CollegeMeeting"
+    post:
+      operationId: createCollegeMeeting
+      tags: [colleges]
+      summary: Create a college club meeting (moderator)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CollegeMeetingInput"
+      responses:
+        "201":
+          description: Meeting created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollegeMeeting"
+
+  /colleges/{collegeId}/projects:
+    get:
+      operationId: getCollegeProjects
+      tags: [colleges]
+      summary: List projects belonging to a college
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+
+  # ── PROJECTS ──────────────────────────────────────────────────────────────────
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: List public projects (discover)
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: open
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a new project
+      security: [{ clerk: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectInput"
+      responses:
+        "201":
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /projects/{projectId}:
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get project details
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+    patch:
+      operationId: updateProject
+      tags: [projects]
+      summary: Update a project (owner/moderator)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Delete a project
+      security: [{ clerk: [] }]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/members:
+    get:
+      operationId: getProjectMembers
+      tags: [projects]
+      summary: List project members
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectMember"
+
+  /projects/{projectId}/apply:
+    post:
+      operationId: applyToProject
+      tags: [projects]
+      summary: Apply to join a project
+      security: [{ clerk: [] }]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectApplicationInput"
+      responses:
+        "201":
+          description: Application submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectApplication"
+
+  /projects/{projectId}/applications:
+    get:
+      operationId: getProjectApplications
+      tags: [projects]
+      summary: List project applications (owner/moderator)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectApplication"
+
+  /projects/{projectId}/applications/{applicationId}:
+    patch:
+      operationId: updateProjectApplication
+      tags: [projects]
+      summary: Approve or reject project application
+      security: [{ clerk: [] }]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatusUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectApplication"
+
+  /projects/{projectId}/messages:
+    get:
+      operationId: getProjectMessages
+      tags: [projects]
+      summary: Get project chat messages
+      security: [{ clerk: [] }]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: before
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectMessage"
+    post:
+      operationId: sendProjectMessage
+      tags: [projects]
+      summary: Send a message in the project chat
+      security: [{ clerk: [] }]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectMessageInput"
+      responses:
+        "201":
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectMessage"
+
+  /projects/{projectId}/events:
+    get:
+      operationId: getProjectEvents
+      tags: [projects]
+      summary: Get project calendar events
+      security: [{ clerk: [] }]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectEvent"
+    post:
+      operationId: createProjectEvent
+      tags: [projects]
+      summary: Create a project calendar event
+      security: [{ clerk: [] }]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectEventInput"
+      responses:
+        "201":
+          description: Event created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectEvent"
+
+  # ── EVENTS (hackathons/workshops) ─────────────────────────────────────────────
+  /events:
+    get:
+      operationId: listEvents
+      tags: [events]
+      summary: List public hackathons and workshops
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: collegeId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ClubEvent"
+    post:
+      operationId: createEvent
+      tags: [events]
+      summary: Create a hackathon or workshop (moderator/admin)
+      security: [{ clerk: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClubEventInput"
+      responses:
+        "201":
+          description: Event created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClubEvent"
+
+  /events/{eventId}:
+    get:
+      operationId: getEvent
+      tags: [events]
+      summary: Get event details
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClubEvent"
+
+  /events/{eventId}/register:
+    post:
+      operationId: registerForEvent
+      tags: [events]
+      summary: Register for a hackathon or workshop
+      security: [{ clerk: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventRegistration"
+
+  /events/{eventId}/registrations:
+    get:
+      operationId: getEventRegistrations
+      tags: [events]
+      summary: Get event registrations (moderator/admin)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Registrations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EventRegistration"
+
+  # ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
+  /notifications:
+    get:
+      operationId: getNotifications
+      tags: [notifications]
+      summary: Get my notifications
+      security: [{ clerk: [] }]
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+
+  /notifications/unread-count:
+    get:
+      operationId: getUnreadNotificationCount
+      tags: [notifications]
+      summary: Get unread notification count
+      security: [{ clerk: [] }]
+      responses:
+        "200":
+          description: Count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnreadCount"
+
+  /notifications/{notificationId}/read:
+    patch:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark a notification as read
+      security: [{ clerk: [] }]
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+
+  /notifications/read-all:
+    patch:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all notifications as read
+      security: [{ clerk: [] }]
+      responses:
+        "200":
+          description: All marked read
+
+  # ── DASHBOARD ─────────────────────────────────────────────────────────────────
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard stats for current user
+      security: [{ clerk: [] }]
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/activity:
+    get:
+      operationId: getDashboardActivity
+      tags: [dashboard]
+      summary: Get recent activity feed
+      security: [{ clerk: [] }]
+      responses:
+        "200":
+          description: Activity feed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
+  # ── ADMIN ─────────────────────────────────────────────────────────────────────
+  /admin/college-registrations:
+    get:
+      operationId: adminGetCollegeRegistrations
+      tags: [admin]
+      summary: List pending college registrations
+      security: [{ clerk: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Registrations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/College"
+
+  /admin/college-registrations/{collegeId}:
+    patch:
+      operationId: adminUpdateCollegeRegistration
+      tags: [admin]
+      summary: Approve or reject college registration
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminStatusUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/College"
+
+  /admin/moderator-applications:
+    get:
+      operationId: adminGetModeratorApplications
+      tags: [admin]
+      summary: List all pending moderator applications
+      security: [{ clerk: [] }]
+      responses:
+        "200":
+          description: Applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ModeratorApplication"
+
+  /admin/moderator-applications/{applicationId}:
+    patch:
+      operationId: adminUpdateModeratorApplication
+      tags: [admin]
+      summary: Approve or reject moderator application
+      security: [{ clerk: [] }]
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminStatusUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModeratorApplication"
+
+  /admin/users:
+    get:
+      operationId: adminGetUsers
+      tags: [admin]
+      summary: List all users
+      security: [{ clerk: [] }]
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserProfile"
+
+  /admin/stats:
+    get:
+      operationId: adminGetStats
+      tags: [admin]
+      summary: Platform-wide stats
+      security: [{ clerk: [] }]
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
 components:
+  securitySchemes:
+    clerk:
+      type: http
+      scheme: bearer
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    # ── USER ────────────────────────────────────────────────────────────────────
+    SocialLinks:
+      type: object
+      properties:
+        linkedin:   { type: ["string", "null"] }
+        github:     { type: ["string", "null"] }
+        instagram:  { type: ["string", "null"] }
+        facebook:   { type: ["string", "null"] }
+        reddit:     { type: ["string", "null"] }
+        whatsapp:   { type: ["string", "null"] }
+
+    PortfolioProject:
+      type: object
+      required: [id, title, url]
+      properties:
+        id:          { type: integer }
+        title:       { type: string }
+        url:         { type: string }
+        description: { type: ["string", "null"] }
+
+    UserProfile:
+      type: object
+      required: [clerkId, name, email, age, course, semester, college, pronouns, createdAt]
+      properties:
+        clerkId:         { type: string }
+        name:            { type: string }
+        email:           { type: string }
+        age:             { type: integer }
+        course:          { type: string }
+        semester:        { type: integer }
+        college:         { type: string }
+        pronouns:        { type: string }
+        bio:             { type: ["string", "null"] }
+        avatarUrl:       { type: ["string", "null"] }
+        portfolioProjects:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioProject"
+        socials:
+          $ref: "#/components/schemas/SocialLinks"
+        role:            { type: string }
+        createdAt:       { type: string, format: date-time }
+
+    UserProfileUpdate:
+      type: object
+      properties:
+        name:       { type: string }
+        age:        { type: integer }
+        course:     { type: string }
+        semester:   { type: integer }
+        college:    { type: string }
+        pronouns:   { type: string }
+        bio:        { type: ["string", "null"] }
+        avatarUrl:  { type: ["string", "null"] }
+        portfolioProjects:
+          type: array
+          items:
+            type: object
+            required: [title, url]
+            properties:
+              title:       { type: string }
+              url:         { type: string }
+              description: { type: ["string", "null"] }
+        socials:
+          $ref: "#/components/schemas/SocialLinks"
+
+    # ── COLLEGE ──────────────────────────────────────────────────────────────────
+    College:
+      type: object
+      required: [id, name, location, status, createdAt]
+      properties:
+        id:          { type: integer }
+        name:        { type: string }
+        location:    { type: string }
+        description: { type: ["string", "null"] }
+        logoUrl:     { type: ["string", "null"] }
+        website:     { type: ["string", "null"] }
+        status:      { type: string, enum: [pending, approved, rejected] }
+        registeredBy: { type: ["string", "null"] }
+        memberCount: { type: integer }
+        projectCount: { type: integer }
+        createdAt:   { type: string, format: date-time }
+
+    CollegeInput:
+      type: object
+      required: [name, location]
+      properties:
+        name:        { type: string }
+        location:    { type: string }
+        description: { type: ["string", "null"] }
+        logoUrl:     { type: ["string", "null"] }
+        website:     { type: ["string", "null"] }
+
+    CollegeMember:
+      type: object
+      required: [clerkId, name, role, joinedAt]
+      properties:
+        clerkId:   { type: string }
+        name:      { type: string }
+        email:     { type: string }
+        avatarUrl: { type: ["string", "null"] }
+        course:    { type: string }
+        semester:  { type: integer }
+        role:      { type: string, enum: [member, moderator, admin] }
+        customRole: { type: ["string", "null"] }
+        joinedAt:  { type: string, format: date-time }
+
+    CollegeJoinRequest:
+      type: object
+      required: [id, collegeId, userId, status, createdAt]
+      properties:
+        id:        { type: integer }
+        collegeId: { type: integer }
+        userId:    { type: string }
+        userName:  { type: string }
+        userEmail: { type: string }
+        status:    { type: string, enum: [pending, approved, rejected] }
+        createdAt: { type: string, format: date-time }
+
+    ModeratorApplication:
+      type: object
+      required: [id, collegeId, userId, status, createdAt]
+      properties:
+        id:           { type: integer }
+        collegeId:    { type: integer }
+        collegeName:  { type: string }
+        userId:       { type: string }
+        userName:     { type: string }
+        userEmail:    { type: string }
+        motivation:   { type: ["string", "null"] }
+        status:       { type: string, enum: [pending, approved, rejected] }
+        createdAt:    { type: string, format: date-time }
+
+    ModeratorApplicationInput:
+      type: object
+      required: [motivation]
+      properties:
+        motivation: { type: string }
+
+    CollegeMeeting:
+      type: object
+      required: [id, collegeId, title, scheduledAt, createdAt]
+      properties:
+        id:           { type: integer }
+        collegeId:    { type: integer }
+        title:        { type: string }
+        description:  { type: ["string", "null"] }
+        meetLink:     { type: ["string", "null"] }
+        scheduledAt:  { type: string, format: date-time }
+        createdByName: { type: string }
+        createdAt:    { type: string, format: date-time }
+
+    CollegeMeetingInput:
+      type: object
+      required: [title, scheduledAt]
+      properties:
+        title:       { type: string }
+        description: { type: ["string", "null"] }
+        meetLink:    { type: ["string", "null"] }
+        scheduledAt: { type: string, format: date-time }
+
+    # ── PROJECT ──────────────────────────────────────────────────────────────────
+    RequiredRole:
+      type: object
+      required: [id, role]
+      properties:
+        id:          { type: integer }
+        role:        { type: string }
+        description: { type: ["string", "null"] }
+
+    Project:
+      type: object
+      required: [id, title, status, visibility, ownerId, createdAt]
+      properties:
+        id:            { type: integer }
+        title:         { type: string }
+        description:   { type: ["string", "null"] }
+        techStack:     { type: ["string", "null"] }
+        status:        { type: string, enum: [planning, active, completed, on_hold] }
+        visibility:    { type: string, enum: [public, private, college_only] }
+        ownerId:       { type: string }
+        ownerName:     { type: string }
+        collegeId:     { type: ["integer", "null"] }
+        collegeName:   { type: ["string", "null"] }
+        isJoint:       { type: boolean }
+        partnerColleges:
+          type: array
+          items: { type: string }
+        openForApplications: { type: boolean }
+        requiredRoles:
+          type: array
+          items:
+            $ref: "#/components/schemas/RequiredRole"
+        memberCount:   { type: integer }
+        createdAt:     { type: string, format: date-time }
+
+    ProjectInput:
+      type: object
+      required: [title, visibility]
+      properties:
+        title:         { type: string }
+        description:   { type: ["string", "null"] }
+        techStack:     { type: ["string", "null"] }
+        visibility:    { type: string, enum: [public, private, college_only] }
+        collegeId:     { type: ["integer", "null"] }
+        isJoint:       { type: boolean }
+        openForApplications: { type: boolean }
+        requiredRoles:
+          type: array
+          items:
+            type: object
+            required: [role]
+            properties:
+              role:        { type: string }
+              description: { type: ["string", "null"] }
+
+    ProjectUpdate:
+      type: object
+      properties:
+        title:         { type: string }
+        description:   { type: ["string", "null"] }
+        techStack:     { type: ["string", "null"] }
+        status:        { type: string, enum: [planning, active, completed, on_hold] }
+        visibility:    { type: string, enum: [public, private, college_only] }
+        openForApplications: { type: boolean }
+        requiredRoles:
+          type: array
+          items:
+            type: object
+            required: [role]
+            properties:
+              role:        { type: string }
+              description: { type: ["string", "null"] }
+
+    ProjectMember:
+      type: object
+      required: [clerkId, name, role, joinedAt]
+      properties:
+        clerkId:   { type: string }
+        name:      { type: string }
+        avatarUrl: { type: ["string", "null"] }
+        role:      { type: string }
+        joinedAt:  { type: string, format: date-time }
+
+    ProjectApplication:
+      type: object
+      required: [id, projectId, userId, status, createdAt]
+      properties:
+        id:          { type: integer }
+        projectId:   { type: integer }
+        userId:      { type: string }
+        userName:    { type: string }
+        userEmail:   { type: string }
+        appliedRole: { type: ["string", "null"] }
+        message:     { type: ["string", "null"] }
+        status:      { type: string, enum: [pending, approved, rejected] }
+        createdAt:   { type: string, format: date-time }
+
+    ProjectApplicationInput:
+      type: object
+      properties:
+        appliedRole: { type: ["string", "null"] }
+        message:     { type: ["string", "null"] }
+
+    ProjectMessage:
+      type: object
+      required: [id, projectId, userId, content, createdAt]
+      properties:
+        id:        { type: integer }
+        projectId: { type: integer }
+        userId:    { type: string }
+        userName:  { type: string }
+        avatarUrl: { type: ["string", "null"] }
+        content:   { type: string }
+        createdAt: { type: string, format: date-time }
+
+    ProjectMessageInput:
+      type: object
+      required: [content]
+      properties:
+        content: { type: string }
+
+    ProjectEvent:
+      type: object
+      required: [id, projectId, title, scheduledAt, createdAt]
+      properties:
+        id:          { type: integer }
+        projectId:   { type: integer }
+        title:       { type: string }
+        description: { type: ["string", "null"] }
+        meetLink:    { type: ["string", "null"] }
+        scheduledAt: { type: string, format: date-time }
+        createdByName: { type: string }
+        createdAt:   { type: string, format: date-time }
+
+    ProjectEventInput:
+      type: object
+      required: [title, scheduledAt]
+      properties:
+        title:       { type: string }
+        description: { type: ["string", "null"] }
+        meetLink:    { type: ["string", "null"] }
+        scheduledAt: { type: string, format: date-time }
+
+    # ── EVENTS ───────────────────────────────────────────────────────────────────
+    ClubEvent:
+      type: object
+      required: [id, title, type, visibility, startDate, createdAt]
+      properties:
+        id:               { type: integer }
+        title:            { type: string }
+        description:      { type: ["string", "null"] }
+        type:             { type: string, enum: [hackathon, workshop, seminar, other] }
+        visibility:       { type: string, enum: [public, college_only] }
+        collegeId:        { type: ["integer", "null"] }
+        collegeName:      { type: ["string", "null"] }
+        startDate:        { type: string, format: date-time }
+        endDate:          { type: ["string", "null"] }
+        registrationLink: { type: ["string", "null"] }
+        maxParticipants:  { type: ["integer", "null"] }
+        registrantCount:  { type: integer }
+        createdByName:    { type: string }
+        createdAt:        { type: string, format: date-time }
+
+    ClubEventInput:
+      type: object
+      required: [title, type, startDate, visibility]
+      properties:
+        title:            { type: string }
+        description:      { type: ["string", "null"] }
+        type:             { type: string, enum: [hackathon, workshop, seminar, other] }
+        visibility:       { type: string, enum: [public, college_only] }
+        collegeId:        { type: ["integer", "null"] }
+        startDate:        { type: string, format: date-time }
+        endDate:          { type: ["string", "null"] }
+        registrationLink: { type: ["string", "null"] }
+        maxParticipants:  { type: ["integer", "null"] }
+
+    EventRegistration:
+      type: object
+      required: [id, eventId, userId, registeredAt]
+      properties:
+        id:           { type: integer }
+        eventId:      { type: integer }
+        userId:       { type: string }
+        userName:     { type: string }
+        userEmail:    { type: string }
+        registeredAt: { type: string, format: date-time }
+
+    # ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
+    Notification:
+      type: object
+      required: [id, userId, type, message, read, createdAt]
+      properties:
+        id:        { type: integer }
+        userId:    { type: string }
+        type:      { type: string }
+        message:   { type: string }
+        linkUrl:   { type: ["string", "null"] }
+        read:      { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    UnreadCount:
+      type: object
+      required: [count]
+      properties:
+        count: { type: integer }
+
+    # ── DASHBOARD ────────────────────────────────────────────────────────────────
+    DashboardStats:
+      type: object
+      required: [myProjectsCount, myCollegeId, unreadNotifications, upcomingMeetings, openProjectsCount]
+      properties:
+        myProjectsCount:      { type: integer }
+        myCollegeId:          { type: ["integer", "null"] }
+        myCollegeName:        { type: ["string", "null"] }
+        myRole:               { type: ["string", "null"] }
+        unreadNotifications:  { type: integer }
+        upcomingMeetings:     { type: integer }
+        openProjectsCount:    { type: integer }
+        upcomingEvents:       { type: integer }
+
+    ActivityItem:
+      type: object
+      required: [id, type, message, createdAt]
+      properties:
+        id:        { type: integer }
+        type:      { type: string }
+        message:   { type: string }
+        linkUrl:   { type: ["string", "null"] }
+        actorName: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+
+    # ── MISC ─────────────────────────────────────────────────────────────────────
+    StatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [approved, rejected] }
+
+    AdminStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:  { type: string, enum: [approved, rejected] }
+        reason:  { type: ["string", "null"] }
+
+    RoleUpdate:
+      type: object
+      required: [role]
+      properties:
+        role:       { type: string, enum: [member, moderator] }
+        customRole: { type: ["string", "null"] }
+
+    AdminStats:
+      type: object
+      required: [totalUsers, totalColleges, pendingColleges, totalProjects, totalEvents]
+      properties:
+        totalUsers:       { type: integer }
+        totalColleges:    { type: integer }
+        pendingColleges:  { type: integer }
+        totalProjects:    { type: integer }
+        totalEvents:      { type: integer }
+        pendingModerators: { type: integer }

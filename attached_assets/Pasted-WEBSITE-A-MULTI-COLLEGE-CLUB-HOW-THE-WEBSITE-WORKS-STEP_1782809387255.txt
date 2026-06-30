@@ -1,0 +1,27 @@
+WEBSITE:
+
+A MULTI COLLEGE CLUB  :
+
+HOW THE WEBSITE WORKS:
+
+STEP ONE : REGSITER USING EMAIL AND PASSWORD And put student information like: (Name , Age , course , which semester , which college , pronouns)make all these fields comulsary
+let them also build a portfolio for themself a descpriton and bio for themselves and also link projects , multiple projects if there and also one more option to link socials (linkedin , facebook , instagram , github , reddit , whatsapp or contact number) all these as optional
+
+STEP TWO : The student should find thier college or if not existing then give them an option to register their college and then once they have joined or registered thier college admin will have a option to view requests in that 
+he can approve college resiter and a college page will be available where they can have thier own projects and also an option to apply to become college club moderater and then moderater can more roles to the students and admin has 
+to aprove for the student to become a moderator moderator will have acces to edit roles or host projects pirvately only for their college or public also which will be shown in the public page and the moderator can even host hackathons
+Or workshops and share registarion link publicly or privately and also can setup college club meeting fot there college and also add an alert icon or red dot with number of notfication if any college meeting is assigne 
+
+
+
+Step Three : Option to find on going projects or look for projects to join or also to start a project 
+project should have its own chat and a calendar to set meetings or calls
+while adding a project give option for the project host to show required roles and let the person finding apply 
+and the project hoster or the college moderator be able to aprove it 
+
+Step four: Also an option to make a joint project with different college groups and one college has only one page and one club but different projects
+
+Step five : admin of the whole website should have accsess to all the things so make harshavardhankalvir2808@gmail.com the admin once he registers
+
+and also add anything else u think which is crutial and i have missed i think u have understood the project think what more could be neccesary and make it an industry level project ready for deployment and make it clean
+For now lets hold back on login page with just a email and password no otp for forgot password option yet 

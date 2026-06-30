@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "ClubHouse — Multi College Club Platform"
+version = "1.0.0"
+id = "artifacts/clubhouse"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21903
+
+[services.development]
+run = "pnpm --filter @workspace/clubhouse run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/clubhouse", "run", "build" ]
+publicDir = "artifacts/clubhouse/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21903"
+BASE_PATH = "/"
