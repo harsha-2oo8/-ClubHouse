@@ -152,6 +152,72 @@ router.get("/:projectId/members", async (req: Request, res: Response) => {
   res.json(enriched);
 });
 
+// Invite a user directly to the project
+router.post("/:projectId/invites", requireAuth, async (req: Request, res: Response) => {
+  const { userId } = getAuth(req);
+  const projectId = parseInt(req.params.projectId);
+  const { targetUserId } = req.body as { targetUserId?: string };
+
+  if (!targetUserId) {
+    res.status(400).json({ error: "targetUserId is required" });
+    return;
+  }
+  if (targetUserId === userId) {
+    res.status(400).json({ error: "You are already a member of this project" });
+    return;
+  }
+
+  const project = await db.select().from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
+  if (!project.length) {
+    res.status(404).json({ error: "Project not found" });
+    return;
+  }
+
+  const inviterMembership = await db.select().from(projectMembersTable)
+    .where(and(eq(projectMembersTable.projectId, projectId), eq(projectMembersTable.clerkId, userId!)))
+    .limit(1);
+  if (!inviterMembership.length || !["owner", "moderator"].includes(inviterMembership[0].role)) {
+    res.status(403).json({ error: "Only project owners and moderators can invite people" });
+    return;
+  }
+
+  const target = await getUserInfo(targetUserId);
+  if (!target) {
+    res.status(404).json({ error: "User not found. They need to finish onboarding first." });
+    return;
+  }
+
+  const existing = await db.select().from(projectMembersTable)
+    .where(and(eq(projectMembersTable.projectId, projectId), eq(projectMembersTable.clerkId, targetUserId)))
+    .limit(1);
+  if (existing.length) {
+    res.status(409).json({ error: "That person is already a project member" });
+    return;
+  }
+
+  await db.insert(projectMembersTable).values({
+    projectId,
+    clerkId: targetUserId,
+    role: "member",
+  });
+  await db.insert(notificationsTable).values({
+    clerkId: targetUserId,
+    type: "project_invite",
+    message: `You were invited to join "${project[0].title}"`,
+    linkUrl: `/projects/${projectId}?invite=1`,
+    read: false,
+  });
+
+  res.status(201).json({
+    projectId,
+    targetUserId,
+    targetUserName: target.name,
+    targetUserEmail: target.email,
+    status: "accepted",
+    createdAt: new Date(),
+  });
+});
+
 // Apply to project
 router.post("/:projectId/apply", requireAuth, async (req: Request, res: Response) => {
   const { userId } = getAuth(req);

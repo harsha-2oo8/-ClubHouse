@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { getAuth } from "@clerk/express";
 import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, ilike, or } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { logger } from "../lib/logger";
 
@@ -36,6 +36,19 @@ router.get("/me", requireAuth, async (req: Request, res: Response) => {
     return;
   }
   res.json(formatUser(users[0]));
+});
+
+router.get("/search", requireAuth, async (req: Request, res: Response) => {
+  const query = String(req.query.q ?? "").trim();
+  if (query.length < 2) {
+    res.json([]);
+    return;
+  }
+
+  const users = await db.select().from(usersTable)
+    .where(or(ilike(usersTable.name, `%${query}%`), ilike(usersTable.email, `%${query}%`)))
+    .limit(8);
+  res.json(users.map(formatUser));
 });
 
 router.patch("/me", requireAuth, async (req: Request, res: Response) => {

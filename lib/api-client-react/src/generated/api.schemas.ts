@@ -325,6 +325,26 @@ export interface ProjectMember {
   joinedAt: string;
 }
 
+export interface ProjectInviteInput {
+  targetUserId: string;
+}
+
+export type ProjectInviteStatus = typeof ProjectInviteStatus[keyof typeof ProjectInviteStatus];
+
+
+export const ProjectInviteStatus = {
+  accepted: 'accepted',
+} as const;
+
+export interface ProjectInvite {
+  projectId: number;
+  targetUserId: string;
+  targetUserName: string;
+  targetUserEmail: string;
+  status: ProjectInviteStatus;
+  createdAt: string;
+}
+
 export type ProjectApplicationStatus = typeof ProjectApplicationStatus[keyof typeof ProjectApplicationStatus];
 
 
@@ -565,6 +585,13 @@ export interface AdminStats {
   totalEvents: number;
   pendingModerators?: number;
 }
+
+export type SearchUsersParams = {
+/**
+ * @minLength 2
+ */
+q: string;
+};
 
 export type ListCollegesParams = {
 search?: string;

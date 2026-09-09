@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { useRoute, Link } from "wouter";
 import { useAuth } from "@clerk/react";
-import { Users, Send, Calendar, Plus, Lock, Unlock, Video, Clock, ArrowLeft } from "lucide-react";
+import { Users, Send, Calendar, Plus, Lock, Unlock, Video, Clock, ArrowLeft, Search, UserPlus, Link2, Copy, Check } from "lucide-react";
 import {
   useGetProject, getGetProjectQueryKey,
   useGetProjectMembers, getGetProjectMembersQueryKey,
   useGetProjectMessages, getGetProjectMessagesQueryKey,
   useGetProjectEvents, getGetProjectEventsQueryKey,
   useApplyToProject, useSendProjectMessage, useCreateProjectEvent,
+  useSearchUsers, useInviteUserToProject, getSearchUsersQueryKey,
   useGetMyProfile, getGetMyProfileQueryKey,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
@@ -58,6 +59,10 @@ export default function ProjectPage() {
   const [newMessage, setNewMessage] = useState("");
   const [applyOpen, setApplyOpen] = useState(false);
   const [eventOpen, setEventOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [invitedIds, setInvitedIds] = useState<string[]>([]);
+  const [linkCopied, setLinkCopied] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -68,6 +73,24 @@ export default function ProjectPage() {
 
   const typedMembers = (members as Array<Record<string, unknown>>) ?? [];
   const isMember = typedMembers.some(m => m.clerkId === userId);
+  const typedProject = project as Record<string, unknown> | null | undefined;
+  const canInvite = !!userId && (
+    typedProject?.ownerId === userId ||
+    typedMembers.some(m => m.clerkId === userId && ["owner", "moderator"].includes(String(m.role)))
+  );
+  const hasInvite = new URLSearchParams(window.location.search).get("invite") === "1";
+
+  const { data: searchResults } = useSearchUsers(
+    { q: searchQuery },
+    {
+      query: {
+        queryKey: getSearchUsersQueryKey({ q: searchQuery }),
+        enabled: inviteOpen && searchQuery.trim().length >= 2 && canInvite,
+      },
+    },
+  );
+  const inviteUser = useInviteUserToProject();
+  const typedSearchResults = (searchResults as Array<Record<string, unknown>>) ?? [];
 
   const { data: messages } = useGetProjectMessages(projectId, { query: { queryKey: getGetProjectMessagesQueryKey(projectId), enabled: !!projectId && isMember } });
   const { data: events } = useGetProjectEvents(projectId, { query: { queryKey: getGetProjectEventsQueryKey(projectId), enabled: !!projectId && isMember } });
@@ -86,7 +109,6 @@ export default function ProjectPage() {
     defaultValues: { title: "", description: "", meetLink: "", scheduledAt: "" },
   });
 
-  const typedProject = project as Record<string, unknown> | null | undefined;
   const typedMessages = (messages as Array<Record<string, unknown>>) ?? [];
   const typedEvents = (events as Array<Record<string, unknown>>) ?? [];
   const typedProfile = profile as { role?: string } | null | undefined;
@@ -130,6 +152,29 @@ export default function ProjectPage() {
       eventForm.reset();
     } catch {
       toast({ title: "Error scheduling meeting", variant: "destructive" });
+    }
+  }
+
+  async function handleInvite(targetUserId: string) {
+    try {
+      await inviteUser.mutateAsync({ projectId, data: { targetUserId } });
+      setInvitedIds(prev => [...prev, targetUserId]);
+      qc.invalidateQueries({ queryKey: getGetProjectMembersQueryKey(projectId) });
+      toast({ title: "Teammate invited", description: "They are now a member and have a notification waiting." });
+    } catch {
+      toast({ title: "Could not invite teammate", description: "They may already be a member.", variant: "destructive" });
+    }
+  }
+
+  async function copyInviteLink() {
+    const basePath = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+    const inviteUrl = `${window.location.origin}${basePath}/projects/${projectId}?invite=1`;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 1800);
+    } catch {
+      toast({ title: "Copy failed", description: "Please copy the link manually.", variant: "destructive" });
     }
   }
 
@@ -194,11 +239,11 @@ export default function ProjectPage() {
             </div>
           </div>
           <div className="flex gap-2 flex-shrink-0">
-            {!isMember && typedProject.openForApplications && isSignedIn && (
+            {!isMember && (typedProject.openForApplications || hasInvite) && isSignedIn && (
               <Dialog open={applyOpen} onOpenChange={setApplyOpen}>
                 <DialogTrigger asChild>
                   <Button className="gap-2" data-testid="button-apply-project">
-                    <Plus className="h-4 w-4" /> Apply to Join
+                    <Plus className="h-4 w-4" /> {hasInvite ? "Join via invite" : "Apply to Join"}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-md">
@@ -224,6 +269,81 @@ export default function ProjectPage() {
                       </Button>
                     </form>
                   </Form>
+                </DialogContent>
+              </Dialog>
+            )}
+            {canInvite && (
+              <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="gap-2" data-testid="button-invite-project">
+                    <UserPlus className="h-4 w-4" /> Invite
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Bring someone into the project</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-5">
+                    <div>
+                      <label className="text-sm font-medium">Search by name or email</label>
+                      <div className="relative mt-2">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          value={searchQuery}
+                          onChange={e => setSearchQuery(e.target.value)}
+                          placeholder="e.g. Priya or priya@example.com"
+                          className="pl-9"
+                          data-testid="input-search-project-invite"
+                        />
+                      </div>
+                      {searchQuery.trim().length > 0 && searchQuery.trim().length < 2 && (
+                        <p className="text-xs text-muted-foreground mt-2">Type at least 2 characters.</p>
+                      )}
+                    </div>
+                    {searchQuery.trim().length >= 2 && (
+                      <div className="space-y-2 max-h-56 overflow-y-auto">
+                        {typedSearchResults.length === 0 ? (
+                          <p className="text-sm text-muted-foreground py-3">No onboarded students match that search.</p>
+                        ) : typedSearchResults.map(candidate => {
+                          const candidateId = String(candidate.clerkId);
+                          const alreadyMember = typedMembers.some(member => member.clerkId === candidateId) || invitedIds.includes(candidateId);
+                          return (
+                            <div key={candidateId} className="flex items-center gap-3 rounded-lg border border-border p-3">
+                              <Avatar className="h-9 w-9">
+                                <AvatarImage src={String(candidate.avatarUrl ?? "")} />
+                                <AvatarFallback>{String(candidate.name ?? "U").slice(0, 2).toUpperCase()}</AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-sm truncate">{String(candidate.name)}</p>
+                                <p className="text-xs text-muted-foreground truncate">{String(candidate.email)}</p>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant={alreadyMember ? "secondary" : "default"}
+                                disabled={alreadyMember || inviteUser.isPending}
+                                onClick={() => handleInvite(candidateId)}
+                              >
+                                {alreadyMember ? "Added" : "Invite"}
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div className="border-t border-border pt-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Link2 className="h-4 w-4 text-primary" />
+                        <p className="text-sm font-medium">Quick invite link</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-3">Share this link with a teammate. It opens this project with an invite prompt.</p>
+                      <div className="flex gap-2">
+                        <Input readOnly value={`${window.location.origin}${import.meta.env.BASE_URL?.replace(/\/$/, "") ?? ""}/projects/${projectId}?invite=1`} className="text-xs" />
+                        <Button variant="outline" size="icon" onClick={copyInviteLink} aria-label="Copy invite link" data-testid="button-copy-invite-link">
+                          {linkCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </DialogContent>
               </Dialog>
             )}

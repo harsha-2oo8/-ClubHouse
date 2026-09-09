@@ -1,0 +1,1 @@
+- [Clerk demo accounts](clerk-demo-accounts.md) — keep development demos on the real Clerk path; placeholder `.test` emails are rejected.

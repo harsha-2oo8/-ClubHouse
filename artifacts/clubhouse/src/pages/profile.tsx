@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useRoute } from "wouter";
+import { useRoute, Link } from "wouter";
 import { useAuth, useUser } from "@clerk/react";
-import { Edit2, ExternalLink, Save, X, Plus, Trash2 } from "lucide-react";
+import { ArrowRight, Edit2, ExternalLink, Save, X, Plus, Trash2 } from "lucide-react";
 import {
   useGetMyProfile, getGetMyProfileQueryKey,
   useGetUserProfile, getGetUserProfileQueryKey,
@@ -119,8 +119,32 @@ export default function ProfilePage() {
   if (!typedProfile) {
     return (
       <AppLayout userRole={ownProfileData?.role}>
-        <div className="p-6 text-center text-muted-foreground">
-          {isOwnProfile ? "Please complete onboarding to view your profile." : "User not found."}
+        <div className="p-6 max-w-xl mx-auto">
+          {isOwnProfile ? (
+            <Card className="border-primary/20 bg-primary/[0.03]">
+              <CardContent className="p-8 text-center">
+                <div className="mx-auto mb-4 h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+                  <Edit2 className="h-6 w-6 text-primary" />
+                </div>
+                <h1 className="text-xl font-semibold text-foreground mb-2">Finish your ClubHouse profile</h1>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Add your name, college, course, and a few details so teammates know who they are working with.
+                </p>
+                {user?.primaryEmailAddress?.emailAddress && (
+                  <p className="text-xs text-muted-foreground mb-5">
+                    Signed in as <span className="font-medium text-foreground">{user.primaryEmailAddress.emailAddress}</span>
+                  </p>
+                )}
+                <Link href="/onboarding">
+                  <Button className="gap-2" data-testid="button-complete-onboarding">
+                    Complete onboarding <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="text-center text-muted-foreground">User not found.</div>
+          )}
         </div>
       </AppLayout>
     );

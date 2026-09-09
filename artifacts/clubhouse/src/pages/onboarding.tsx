@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useAuth } from "@clerk/react";
+import { useAuth, useUser } from "@clerk/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Trash2, ArrowRight, ArrowLeft, User, Briefcase, Link as LinkIcon } from "lucide-react";
+import { Plus, Trash2, ArrowRight, ArrowLeft, User, Briefcase, Link as LinkIcon, Mail } from "lucide-react";
 import { useUpdateMyProfile } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,8 +50,10 @@ export default function Onboarding() {
   const [step, setStep] = useState(1);
   const [step1Data, setStep1Data] = useState<Step1Values | null>(null);
   const [, setLocation] = useLocation();
+  const { user } = useUser();
   const { toast } = useToast();
   const updateProfile = useUpdateMyProfile();
+  const accountEmail = user?.primaryEmailAddress?.emailAddress ?? "";
 
   const form1 = useForm<Step1Values>({
     resolver: zodResolver(step1Schema),
@@ -143,6 +145,14 @@ export default function Onboarding() {
                       <FormMessage />
                     </FormItem>
                   )} />
+                  <div>
+                    <label className="text-sm font-medium leading-none">Email address</label>
+                    <div className="relative mt-2">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input value={accountEmail} readOnly className="pl-9 bg-muted/40" data-testid="input-email" />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1.5">This comes from your signed-in account.</p>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <FormField control={form1.control} name="age" render={({ field }) => (
                       <FormItem>

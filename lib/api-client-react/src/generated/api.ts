@@ -49,11 +49,14 @@ import type {
   ProjectEvent,
   ProjectEventInput,
   ProjectInput,
+  ProjectInvite,
+  ProjectInviteInput,
   ProjectMember,
   ProjectMessage,
   ProjectMessageInput,
   ProjectUpdate,
   RoleUpdate,
+  SearchUsersParams,
   StatusUpdate,
   UnreadCount,
   UserProfile,
@@ -310,6 +313,90 @@ export const useUpdateMyProfile = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getUpdateMyProfileMutationOptions(options));
     }
+
+export const getSearchUsersUrl = (params: SearchUsersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/users/search?${stringifiedParams}` : `/api/users/search`
+}
+
+/**
+ * @summary Search users by name or email
+ */
+export const searchUsers = async (params: SearchUsersParams, options?: RequestInit): Promise<UserProfile[]> => {
+
+  return customFetch<UserProfile[]>(getSearchUsersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSearchUsersQueryKey = (params?: SearchUsersParams,) => {
+    return [
+    `/api/users/search`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getSearchUsersQueryOptions = <TData = Awaited<ReturnType<typeof searchUsers>>, TError = ErrorType<unknown>>(params: SearchUsersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchUsers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSearchUsersQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof searchUsers>>> = ({ signal }) => searchUsers(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof searchUsers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type SearchUsersQueryResult = NonNullable<Awaited<ReturnType<typeof searchUsers>>>
+export type SearchUsersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Search users by name or email
+ */
+
+export function useSearchUsers<TData = Awaited<ReturnType<typeof searchUsers>>, TError = ErrorType<unknown>>(
+ params: SearchUsersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchUsers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getSearchUsersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetUserProfileUrl = (userId: string,) => {
 
@@ -1883,6 +1970,77 @@ export function useGetProjectMembers<TData = Awaited<ReturnType<typeof getProjec
 
 
 
+
+export const getInviteUserToProjectUrl = (projectId: number,) => {
+
+
+
+
+  return `/api/projects/${projectId}/invites`
+}
+
+/**
+ * @summary Invite a user to a project
+ */
+export const inviteUserToProject = async (projectId: number,
+    projectInviteInput: ProjectInviteInput, options?: RequestInit): Promise<ProjectInvite> => {
+
+  return customFetch<ProjectInvite>(getInviteUserToProjectUrl(projectId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(projectInviteInput)
+  }
+);}
+
+
+
+
+export const getInviteUserToProjectMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof inviteUserToProject>>, TError,{projectId: number;data: BodyType<ProjectInviteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof inviteUserToProject>>, TError,{projectId: number;data: BodyType<ProjectInviteInput>}, TContext> => {
+
+const mutationKey = ['inviteUserToProject'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof inviteUserToProject>>, {projectId: number;data: BodyType<ProjectInviteInput>}> = (props) => {
+          const {projectId,data} = props ?? {};
+
+          return  inviteUserToProject(projectId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type InviteUserToProjectMutationResult = NonNullable<Awaited<ReturnType<typeof inviteUserToProject>>>
+    export type InviteUserToProjectMutationBody = BodyType<ProjectInviteInput>
+    export type InviteUserToProjectMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Invite a user to a project
+ */
+export const useInviteUserToProject = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof inviteUserToProject>>, TError,{projectId: number;data: BodyType<ProjectInviteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof inviteUserToProject>>,
+        TError,
+        {projectId: number;data: BodyType<ProjectInviteInput>},
+        TContext
+      > => {
+      return useMutation(getInviteUserToProjectMutationOptions(options));
+    }
 
 export const getApplyToProjectUrl = (projectId: number,) => {
 

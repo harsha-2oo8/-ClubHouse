@@ -106,6 +106,48 @@ export const UpdateMyProfileResponse = zod.object({
 
 
 /**
+ * @summary Search users by name or email
+ */
+export const searchUsersQueryQMin = 2;
+
+
+
+export const SearchUsersQueryParams = zod.object({
+  "q": zod.coerce.string().min(searchUsersQueryQMin)
+})
+
+export const SearchUsersResponseItem = zod.object({
+  "clerkId": zod.string(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "age": zod.number(),
+  "course": zod.string(),
+  "semester": zod.number(),
+  "college": zod.string(),
+  "pronouns": zod.string(),
+  "bio": zod.string().nullish(),
+  "avatarUrl": zod.string().nullish(),
+  "portfolioProjects": zod.array(zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "url": zod.string(),
+  "description": zod.string().nullish()
+})).optional(),
+  "socials": zod.object({
+  "linkedin": zod.string().nullish(),
+  "github": zod.string().nullish(),
+  "instagram": zod.string().nullish(),
+  "facebook": zod.string().nullish(),
+  "reddit": zod.string().nullish(),
+  "whatsapp": zod.string().nullish()
+}).optional(),
+  "role": zod.string().optional(),
+  "createdAt": zod.coerce.date()
+})
+export const SearchUsersResponse = zod.array(SearchUsersResponseItem)
+
+
+/**
  * @summary Get any user's public profile
  */
 export const GetUserProfileParams = zod.object({
@@ -643,6 +685,27 @@ export const GetProjectMembersResponseItem = zod.object({
   "joinedAt": zod.coerce.date()
 })
 export const GetProjectMembersResponse = zod.array(GetProjectMembersResponseItem)
+
+
+/**
+ * @summary Invite a user to a project
+ */
+export const InviteUserToProjectParams = zod.object({
+  "projectId": zod.coerce.number()
+})
+
+export const InviteUserToProjectBody = zod.object({
+  "targetUserId": zod.string()
+})
+
+export const InviteUserToProjectResponse = zod.object({
+  "projectId": zod.number(),
+  "targetUserId": zod.string(),
+  "targetUserName": zod.string(),
+  "targetUserEmail": zod.string(),
+  "status": zod.enum(['accepted']),
+  "createdAt": zod.coerce.date()
+})
 
 
 /**
