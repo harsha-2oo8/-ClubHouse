@@ -7,6 +7,8 @@ import eventsRouter from "./events";
 import notificationsRouter from "./notifications";
 import dashboardRouter from "./dashboard";
 import adminRouter from "./admin";
+import clubsRouter from "./clubs";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
@@ -18,5 +20,7 @@ router.use("/events", eventsRouter);
 router.use("/notifications", notificationsRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/admin", adminRouter);
+router.use("/clubs", clubsRouter);
+router.use(storageRouter);
 
 export default router;

@@ -19,6 +19,7 @@ import ProfilePage from "@/pages/profile";
 import NotificationsPage from "@/pages/notifications";
 import AdminPage from "@/pages/admin";
 import NotFound from "@/pages/not-found";
+import { ClubAdmin, ClubDirectory, ClubProfile, ClubRegister } from "@/pages/clubs";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -58,6 +59,10 @@ function AppRouter() {
         <Route path="/discover" component={Discover} />
         <Route path="/discover/colleges" component={DiscoverColleges} />
         <Route path="/discover/events" component={DiscoverEvents} />
+        <Route path="/clubs/register" component={ClubRegister} />
+        <Route path="/clubs/:clubId/admin" component={ClubAdmin} />
+        <Route path="/clubs/:clubId" component={ClubProfile} />
+        <Route path="/clubs" component={ClubDirectory} />
         <Route path="/colleges/:collegeId" component={CollegePage} />
         <Route path="/projects/:projectId" component={ProjectPage} />
         <Route path="/profile/me" component={ProfilePage} />

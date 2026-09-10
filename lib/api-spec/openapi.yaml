@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Api
   version: 0.1.0
-  description: ClubHouse Multi-College Club Platform API
+  description: ClubHouse single-college club management API
 servers:
   - url: /api
     description: Base API path
@@ -13,6 +13,8 @@ tags:
     description: User profiles and portfolios
   - name: colleges
     description: College registration and management
+  - name: clubs
+    description: Single-college club directory and management
   - name: projects
     description: Project management and collaboration
   - name: events
@@ -443,6 +445,287 @@ paths:
                 items:
                   $ref: "#/components/schemas/Project"
 
+  # ── CLUBS ──────────────────────────────────────────────────────────────────────
+  /clubs:
+    get:
+      operationId: listClubs
+      tags: [clubs]
+      summary: List published clubs for the active college
+      responses:
+        "200":
+          description: Clubs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Club"
+    post:
+      operationId: createClub
+      tags: [clubs]
+      summary: Register a club for the active college
+      security: [{ clerk: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClubInput"
+      responses:
+        "201":
+          description: Club created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Club"
+
+  /clubs/{clubId}:
+    get:
+      operationId: getClub
+      tags: [clubs]
+      summary: Get a public club profile
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Club profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Club"
+    patch:
+      operationId: updateClub
+      tags: [clubs]
+      summary: Update a club profile
+      security: [{ clerk: [] }]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClubUpdate"
+      responses:
+        "200":
+          description: Club updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Club"
+    delete:
+      operationId: deleteClub
+      tags: [clubs]
+      summary: Delete a club
+      security: [{ clerk: [] }]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Club deleted
+
+  /clubs/{clubId}/members:
+    get:
+      operationId: listClubMembers
+      tags: [clubs]
+      summary: List a club's team members
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Club team
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ClubMember"
+    post:
+      operationId: createClubMember
+      tags: [clubs]
+      summary: Add a club team member
+      security: [{ clerk: [] }]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClubMemberInput"
+      responses:
+        "201":
+          description: Team member added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClubMember"
+
+  /clubs/{clubId}/members/{memberId}:
+    patch:
+      operationId: updateClubMember
+      tags: [clubs]
+      summary: Update a club team member
+      security: [{ clerk: [] }]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClubMemberInput"
+      responses:
+        "200":
+          description: Team member updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClubMember"
+    delete:
+      operationId: deleteClubMember
+      tags: [clubs]
+      summary: Remove a club team member
+      security: [{ clerk: [] }]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Team member removed
+
+  /clubs/{clubId}/events:
+    get:
+      operationId: listClubEvents
+      tags: [clubs]
+      summary: List a club's upcoming events
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Club events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ClubManagementEvent"
+    post:
+      operationId: createClubEvent
+      tags: [clubs]
+      summary: Create an event for a club
+      security: [{ clerk: [] }]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClubManagementEventInput"
+      responses:
+        "201":
+          description: Event created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClubManagementEvent"
+
+  /clubs/{clubId}/events/{eventId}:
+    patch:
+      operationId: updateClubEvent
+      tags: [clubs]
+      summary: Update a club event
+      security: [{ clerk: [] }]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClubManagementEventInput"
+      responses:
+        "200":
+          description: Event updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClubManagementEvent"
+    delete:
+      operationId: deleteClubEvent
+      tags: [clubs]
+      summary: Delete a club event
+      security: [{ clerk: [] }]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Event deleted
+
   # ── PROJECTS ──────────────────────────────────────────────────────────────────
   /projects:
     get:
@@ -815,6 +1098,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ClubEvent"
+
+  # ── OBJECT STORAGE ─────────────────────────────────────────────────────────────
+  /storage/uploads/request-url:
+    post:
+      operationId: requestUploadUrl
+      tags: [clubs]
+      summary: Request a presigned upload URL
+      security: [{ clerk: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageUploadInput"
+      responses:
+        "200":
+          description: Upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageUploadResponse"
 
   /events/{eventId}:
     get:
@@ -1267,6 +1571,115 @@ components:
         description: { type: ["string", "null"] }
         meetLink:    { type: ["string", "null"] }
         scheduledAt: { type: string, format: date-time }
+
+    # ── CLUB ──────────────────────────────────────────────────────────────────────
+    Club:
+      type: object
+      required: [id, collegeId, name, description, createdBy, createdByName, status, createdAt, updatedAt, memberCount, eventCount]
+      properties:
+        id:            { type: integer }
+        collegeId:     { type: integer }
+        name:          { type: string }
+        description:   { type: string }
+        logoPath:      { type: ["string", "null"] }
+        brochurePath:  { type: ["string", "null"] }
+        brochureName:  { type: ["string", "null"] }
+        createdBy:     { type: string }
+        createdByName: { type: string }
+        status:        { type: string, enum: [published] }
+        memberCount:   { type: integer }
+        eventCount:    { type: integer }
+        members:
+          type: array
+          items: { $ref: "#/components/schemas/ClubMember" }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/ClubManagementEvent" }
+        createdAt:     { type: string, format: date-time }
+        updatedAt:     { type: string, format: date-time }
+
+    ClubInput:
+      type: object
+      required: [name, description]
+      properties:
+        name:          { type: string, minLength: 2 }
+        description:   { type: string, minLength: 10 }
+        logoPath:      { type: ["string", "null"] }
+        brochurePath:  { type: ["string", "null"] }
+        brochureName:  { type: ["string", "null"] }
+
+    ClubUpdate:
+      type: object
+      properties:
+        name:          { type: string, minLength: 2 }
+        description:   { type: string, minLength: 10 }
+        logoPath:      { type: ["string", "null"] }
+        brochurePath:  { type: ["string", "null"] }
+        brochureName:  { type: ["string", "null"] }
+
+    ClubMember:
+      type: object
+      required: [id, clubId, name, role, displayOrder, createdAt]
+      properties:
+        id:            { type: integer }
+        clubId:        { type: integer }
+        name:          { type: string }
+        role:          { type: string }
+        displayOrder:  { type: integer }
+        createdAt:     { type: string, format: date-time }
+
+    ClubMemberInput:
+      type: object
+      required: [name, role]
+      properties:
+        name:          { type: string, minLength: 2 }
+        role:          { type: string, minLength: 2 }
+        displayOrder:  { type: integer }
+
+    ClubManagementEvent:
+      type: object
+      required: [id, clubId, title, scheduledAt, createdAt, updatedAt]
+      properties:
+        id:            { type: integer }
+        clubId:        { type: integer }
+        title:         { type: string }
+        scheduledAt:   { type: string, format: date-time }
+        description:   { type: ["string", "null"] }
+        bannerPath:    { type: ["string", "null"] }
+        createdBy:     { type: string }
+        createdAt:     { type: string, format: date-time }
+        updatedAt:     { type: string, format: date-time }
+
+    ClubManagementEventInput:
+      type: object
+      required: [title, scheduledAt]
+      properties:
+        title:         { type: string, minLength: 2 }
+        scheduledAt:   { type: string, format: date-time }
+        description:   { type: ["string", "null"] }
+        bannerPath:    { type: ["string", "null"] }
+
+    StorageUploadInput:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:        { type: string }
+        size:         { type: integer, minimum: 1 }
+        contentType: { type: string }
+
+    StorageUploadResponse:
+      type: object
+      required: [uploadURL, objectPath, metadata]
+      properties:
+        uploadURL:  { type: string, format: uri }
+        objectPath: { type: string }
+        metadata:
+          type: object
+          required: [name, size, contentType]
+          properties:
+            name:        { type: string }
+            size:        { type: integer }
+            contentType: { type: string }
 
     # ── PROJECT ──────────────────────────────────────────────────────────────────
     RequiredRole:

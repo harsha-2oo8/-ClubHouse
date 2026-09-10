@@ -3,12 +3,12 @@ import { Link, useLocation } from "wouter";
 import { useAuth, useUser, UserButton } from "@clerk/react";
 import { useTheme } from "next-themes";
 import {
-  LayoutDashboard, Compass, GraduationCap, Calendar, Bell,
+  LayoutDashboard, Compass, GraduationCap, Calendar, Bell, UsersRound,
   User, Shield, Menu, X, Sun, Moon, ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useGetUnreadNotificationCount } from "@workspace/api-client-react";
+import { useGetUnreadNotificationCount, getGetUnreadNotificationCountQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -23,14 +23,16 @@ const navItems: NavItem[] = [
   { href: "/discover", label: "Discover", icon: Compass },
   { href: "/discover/colleges", label: "Colleges", icon: GraduationCap },
   { href: "/discover/events", label: "Events", icon: Calendar },
+  { href: "/clubs", label: "Clubs", icon: UsersRound },
   { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/profile/me", label: "My Profile", icon: User },
   { href: "/admin", label: "Admin", icon: Shield, adminOnly: true },
 ];
 
 function NavLink({ item, active, onClick }: { item: NavItem; active: boolean; onClick?: () => void }) {
+  const { isSignedIn } = useAuth();
   const { data: count } = useGetUnreadNotificationCount({
-    query: { enabled: item.href === "/notifications" }
+    query: { queryKey: getGetUnreadNotificationCountQueryKey(), enabled: Boolean(isSignedIn) && item.href === "/notifications" }
   });
   const unreadCount = item.href === "/notifications" ? (count as { count?: number })?.count ?? 0 : 0;
 
@@ -85,7 +87,7 @@ export function AppLayout({ children, userRole }: { children: React.ReactNode; u
           ))}
         </nav>
         <div className="p-3 border-t border-sidebar-border flex items-center gap-2">
-          <UserButton afterSignOutUrl="/" />
+           <UserButton />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.fullName ?? "User"}</p>
           </div>
@@ -145,7 +147,7 @@ export function AppLayout({ children, userRole }: { children: React.ReactNode; u
               ))}
             </nav>
             <div className="p-3 border-t border-sidebar-border flex items-center gap-3">
-              <UserButton afterSignOutUrl="/" />
+               <UserButton />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.fullName ?? "User"}</p>
               </div>

@@ -11,6 +11,14 @@
   "private": true,
   "devDependencies": {
     "prettier": "^3.8.4",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "pnpm": {
+    "overrides": {
+      "react": "$react",
+      "react-dom": "$react-dom"
+    }
   }
 }
