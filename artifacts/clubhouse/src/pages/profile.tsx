@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useRoute, Link } from "wouter";
 import { useAuth, useUser } from "@clerk/react";
-import { ArrowRight, Edit2, ExternalLink, Save, X, Plus, Trash2 } from "lucide-react";
+import { ArrowRight, Edit2, ExternalLink, Flag, Save, X, Plus, Trash2 } from "lucide-react";
 import {
   useGetMyProfile, getGetMyProfileQueryKey,
   useGetUserProfile, getGetUserProfileQueryKey,
@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { ReportDialog } from "@/components/report-dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +36,7 @@ export default function ProfilePage() {
   const isOwnProfile = !params?.userId || params.userId === "me" || params.userId === currentUserId;
   const targetUserId = isOwnProfile ? "me" : params?.userId ?? "";
   const [editing, setEditing] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const { toast } = useToast();
   const qc = useQueryClient();
   const updateProfile = useUpdateMyProfile();
@@ -173,9 +175,12 @@ export default function ProfilePage() {
             <p className="text-muted-foreground text-sm mb-1">
               {String(typedProfile.course)}, Semester {Number(typedProfile.semester)} · {String(typedProfile.college)}
             </p>
-            <p className="text-muted-foreground text-sm">{String(typedProfile.email)}</p>
+            {/* Email is private: only visible on your own profile. */}
+            {isOwnProfile && (
+              <p className="text-muted-foreground text-sm">{String(typedProfile.email)}</p>
+            )}
           </div>
-          {isOwnProfile && (
+          {isOwnProfile ? (
             <div className="flex gap-2">
               {editing ? (
                 <>
@@ -192,8 +197,25 @@ export default function ProfilePage() {
                 </Button>
               )}
             </div>
+          ) : (
+            isSignedIn && (
+              <div className="flex gap-2">
+                <Button size="sm" variant="ghost" onClick={() => setReportOpen(true)} className="gap-1.5 text-muted-foreground" aria-label="Report profile" data-testid="button-report-profile">
+                  <Flag className="h-4 w-4" />
+                </Button>
+              </div>
+            )
           )}
         </div>
+        {!isOwnProfile && (
+          <ReportDialog
+            open={reportOpen}
+            onOpenChange={setReportOpen}
+            targetType="profile"
+            targetId={String(typedProfile.clerkId ?? targetUserId)}
+            targetLabel="profile"
+          />
+        )}
 
         <div className="space-y-5">
           {/* Bio */}

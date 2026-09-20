@@ -3,11 +3,13 @@ import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ClerkProvider, SignIn, SignUp, useAuth } from "@clerk/react";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
+import { setUploadAuthTokenGetter } from "@workspace/object-storage-web";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { clerkAppearance } from "@/lib/clerk-appearance";
+import { appConfig } from "@/lib/config";
 
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
@@ -18,6 +20,7 @@ import DiscoverEvents from "@/pages/discover-events";
 import CollegePage from "@/pages/college";
 import ProjectPage from "@/pages/project";
 import ProfilePage from "@/pages/profile";
+import MySpace from "@/pages/my";
 import NotificationsPage from "@/pages/notifications";
 import AdminPage from "@/pages/admin";
 import NotFound from "@/pages/not-found";
@@ -29,9 +32,9 @@ const queryClient = new QueryClient({
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+  appConfig.clerkPublishableKey,
 );
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+const clerkProxyUrl = appConfig.clerkProxyUrl;
 const basePath = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 if (!clerkPubKey) throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY");
@@ -43,19 +46,22 @@ function stripBase(path: string): string {
 }
 
 /**
- * Bridges Clerk session tokens into the generated API client.
- * The SPA is hosted on a different origin than the API (Vercel -> Render),
- * so session cookies never reach the backend. Every API call instead carries
- * `Authorization: Bearer <session JWT>`, which @clerk/express verifies
- * server-side (requires CLERK_SECRET_KEY on the API).
+ * Bridges Clerk session tokens into the generated API client and the
+ * file-upload client. The SPA is hosted on a different origin than the API
+ * (Vercel -> Render), so session cookies never reach the backend. Every API
+ * call instead carries `Authorization: Bearer <session JWT>`, which
+ * @clerk/express verifies server-side (requires CLERK_SECRET_KEY on the API).
  */
 function ClerkTokenBridge() {
   const { getToken, isSignedIn } = useAuth();
   useEffect(() => {
-    setAuthTokenGetter(() =>
-      getToken().catch(() => null),
-    );
-    return () => setAuthTokenGetter(null);
+    const getter = () => getToken().catch(() => null);
+    setAuthTokenGetter(getter);
+    setUploadAuthTokenGetter(getter);
+    return () => {
+      setAuthTokenGetter(null);
+      setUploadAuthTokenGetter(null);
+    };
   }, [getToken, isSignedIn]);
   return null;
 }
@@ -104,6 +110,7 @@ function AppRouter() {
         <Route path="/projects/:projectId" component={ProjectPage} />
         <Route path="/profile/me" component={ProfilePage} />
         <Route path="/profile/:userId" component={ProfilePage} />
+        <Route path="/my" component={MySpace} />
         <Route path="/notifications" component={NotificationsPage} />
         <Route path="/admin" component={AdminPage} />
         <Route component={NotFound} />

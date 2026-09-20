@@ -112,7 +112,9 @@ router.get("/:userId", async (req: Request, res: Response) => {
     res.status(404).json({ error: "User not found" });
     return;
   }
-  res.json(formatUser(users[0]));
+  // Public profile: email is private and never exposed to guests.
+  const { email: _privateEmail, ...publicProfile } = formatUser(users[0]);
+  res.json(publicProfile);
 });
 
 export default router;

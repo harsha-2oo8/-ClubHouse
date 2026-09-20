@@ -4,3 +4,4 @@ export * from "./projects";
 export * from "./events";
 export * from "./notifications";
 export * from "./clubs";
+export * from "./reports";

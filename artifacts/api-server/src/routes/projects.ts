@@ -1,10 +1,13 @@
 import { Router, Request, Response } from "express";
 import { getAuth } from "@clerk/express";
-import { db, projectsTable, projectMembersTable, projectApplicationsTable, projectMessagesTable, projectEventsTable, usersTable, collegesTable, notificationsTable } from "@workspace/db";
+import { db, projectsTable, projectMembersTable, projectApplicationsTable, projectMessagesTable, projectEventsTable, usersTable, collegesTable } from "@workspace/db";
 import { eq, and, ilike, sql, or } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { getParam, getLimit } from "../lib/params";
 import { strictWriteLimit } from "../lib/rateLimit";
+import { canDeleteProject, canDeleteProjectEvent } from "../lib/policy";
+import { notificationService } from "../lib/notify";
+import { recordAuditLog } from "../lib/audit";
 
 const router = Router();
 
@@ -124,7 +127,8 @@ router.patch("/:projectId", requireAuth, strictWriteLimit(), async (req: Request
   res.json(await formatProject(updated));
 });
 
-// Delete project
+// Delete project — creator/owner or platform admin. Cascades (FK) remove
+// members, applications, messages and events. Members are notified.
 router.delete("/:projectId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
   const id = parseInt(getParam(req, "projectId"));
@@ -133,11 +137,30 @@ router.delete("/:projectId", requireAuth, strictWriteLimit(), async (req: Reques
     res.status(404).json({ error: "Project not found" });
     return;
   }
-  if (projects[0].ownerId !== userId) {
-    res.status(403).json({ error: "Not authorized" });
+  if (!(await canDeleteProject(userId!, id))) {
+    res.status(403).json({ error: "Only the project creator or an admin can delete this project." });
     return;
   }
+  const before = projects[0];
+  const members = await db.select().from(projectMembersTable).where(eq(projectMembersTable.projectId, id));
   await db.delete(projectsTable).where(eq(projectsTable.id, id));
+  await recordAuditLog(req, {
+    action: userId === before.ownerId ? "CREATOR_DELETED_PROJECT" : "ADMIN_DELETED_PROJECT",
+    entityType: "project",
+    entityId: id,
+    before,
+    metadata: { title: before.title },
+  });
+  for (const m of members) {
+    if (m.clerkId !== userId) {
+      await notificationService.send(
+        m.clerkId,
+        "project_deleted",
+        `Project "${before.title}" was deleted.`,
+        "/discover",
+      );
+    }
+  }
   res.status(204).send();
 });
 
@@ -203,13 +226,12 @@ router.post("/:projectId/invites", requireAuth, strictWriteLimit(), async (req: 
     clerkId: targetUserId,
     role: "member",
   });
-  await db.insert(notificationsTable).values({
-    clerkId: targetUserId,
-    type: "project_invite",
-    message: `You were invited to join "${project[0].title}"`,
-    linkUrl: `/projects/${projectId}?invite=1`,
-    read: false,
-  });
+  await notificationService.send(
+    targetUserId,
+    "project_invite",
+    `You were invited to join "${project[0].title}"`,
+    `/projects/${projectId}?invite=1`,
+  );
 
   res.status(201).json({
     projectId,
@@ -241,13 +263,12 @@ router.post("/:projectId/apply", requireAuth, strictWriteLimit(), async (req: Re
   const project = await db.select().from(projectsTable).where(eq(projectsTable.id, id)).limit(1);
   if (project.length) {
     const u = await getUserInfo(userId!);
-    await db.insert(notificationsTable).values({
-      clerkId: project[0].ownerId,
-      type: "project_application",
-      message: `${u?.name ?? "Someone"} applied to join your project "${project[0].title}"`,
-      linkUrl: `/projects/${id}`,
-      read: false,
-    });
+    await notificationService.send(
+      project[0].ownerId,
+      "project_application",
+      `${u?.name ?? "Someone"} applied to join your project "${project[0].title}"`,
+      `/projects/${id}`,
+    );
   }
 
   const u = await getUserInfo(userId!);
@@ -308,13 +329,12 @@ router.patch("/:projectId/applications/:applicationId", requireAuth, strictWrite
         projectId, clerkId: updated.clerkId, role: updated.appliedRole ?? "member",
       });
     }
-    await db.insert(notificationsTable).values({
-      clerkId: updated.clerkId,
-      type: "project_application_approved",
-      message: `Your application to join "${projects[0].title}" has been approved!`,
-      linkUrl: `/projects/${projectId}`,
-      read: false,
-    });
+    await notificationService.send(
+      updated.clerkId,
+      "project_application_approved",
+      `Your application to join "${projects[0].title}" has been approved!`,
+      `/projects/${projectId}`,
+    );
   }
 
   const u = await getUserInfo(updated.clerkId);
@@ -391,7 +411,7 @@ router.get("/:projectId/events", requireAuth, async (req: Request, res: Response
     return {
       id: e.id, projectId: e.projectId, title: e.title, description: e.description,
       meetLink: e.meetLink, scheduledAt: e.scheduledAt, createdByName: u?.name ?? "",
-      createdAt: e.createdAt,
+      createdBy: e.createdBy, createdAt: e.createdAt,
     };
   }));
   res.json(enriched);
@@ -418,13 +438,12 @@ router.post("/:projectId/events", requireAuth, strictWriteLimit(), async (req: R
   const members = await db.select().from(projectMembersTable).where(eq(projectMembersTable.projectId, id));
   for (const m of members) {
     if (m.clerkId !== userId) {
-      await db.insert(notificationsTable).values({
-        clerkId: m.clerkId,
-        type: "project_meeting",
-        message: `New project meeting scheduled: ${title}`,
-        linkUrl: `/projects/${id}`,
-        read: false,
-      });
+      await notificationService.send(
+        m.clerkId,
+        "project_meeting",
+        `New project meeting scheduled: ${title}`,
+        `/projects/${id}`,
+      );
     }
   }
 
@@ -434,6 +453,33 @@ router.post("/:projectId/events", requireAuth, strictWriteLimit(), async (req: R
     meetLink: event.meetLink, scheduledAt: event.scheduledAt, createdByName: u?.name ?? "",
     createdAt: event.createdAt,
   });
+});
+
+// Delete project event — project owner, event creator, or platform admin.
+router.delete("/:projectId/events/:eventId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
+  const { userId } = getAuth(req);
+  const projectId = parseInt(getParam(req, "projectId"));
+  const eventId = parseInt(getParam(req, "eventId"));
+  const events = await db.select().from(projectEventsTable)
+    .where(and(eq(projectEventsTable.id, eventId), eq(projectEventsTable.projectId, projectId))).limit(1);
+  if (!events.length) {
+    res.status(404).json({ error: "Project event not found" });
+    return;
+  }
+  if (!(await canDeleteProjectEvent(userId!, projectId, eventId))) {
+    res.status(403).json({ error: "Only the project owner, the event creator, or an admin can delete this event." });
+    return;
+  }
+  const before = events[0];
+  await db.delete(projectEventsTable).where(eq(projectEventsTable.id, eventId));
+  await recordAuditLog(req, {
+    action: "CREATOR_DELETED_PROJECT_EVENT",
+    entityType: "project_event",
+    entityId: eventId,
+    before,
+    metadata: { projectId },
+  });
+  res.status(204).send();
 });
 
 export default router;

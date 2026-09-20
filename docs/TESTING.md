@@ -2,12 +2,17 @@
 
 ## Stack
 
-Vitest (`@workspace/api-server`, `pnpm --filter @workspace/api-server run test`). No DB/Clerk needed for current unit tests.
+Vitest (`@workspace/api-server`, `pnpm --filter @workspace/api-server run test`). No DB/Clerk needed: DB-backed modules are stubbed (`DATABASE_URL` dummy) and Clerk auth is mocked.
 
-## Coverage today (11 tests, all passing)
+## Coverage (28 tests, all passing)
 
-- `src/lib/params.test.ts` — `getParam` (string + Express 5 array + missing), `getIntParam`, `getLimit` clamping.
-- `src/lib/adminBootstrap.test.ts` — allowlist parsing, email/clerkId matching, deny-by-default.
+- `params.test.ts` (6) — Express 5 param/query helpers, limit clamping.
+- `adminBootstrap.test.ts` (5) — allowlist parsing/matching, deny-by-default.
+- `config.test.ts` (7) — REQUIRED validation, CORS parsing, admin lists, GCS `\n` handling, test-key detection.
+- `rateLimit.test.ts` (2) — under-cap passes, 429 + `Retry-After` shape.
+- `audit.test.ts` (2) — secret scrubbing of audit metadata.
+- `policy.test.ts` (1) — pure ownership predicate.
+- `gcsStorage.test.ts` (5) — filename sanitize, object naming, traversal rejection, read matrix, path extraction.
 
 ## Priority matrix (next)
 

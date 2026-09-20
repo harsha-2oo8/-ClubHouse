@@ -6,6 +6,8 @@
  * creation time. Existing users are never re-promoted on later requests, and the
  * role of existing admins stays controlled by the DB `users.role` column.
  */
+import { getConfig } from "./config";
+
 export function parseAdminList(raw: string | undefined): string[] {
   if (!raw) return [];
   return raw
@@ -15,11 +17,11 @@ export function parseAdminList(raw: string | undefined): string[] {
 }
 
 export function getBootstrapAdminEmails(): string[] {
-  return parseAdminList(process.env.ADMIN_EMAILS);
+  return getConfig().adminEmails;
 }
 
 export function getBootstrapAdminClerkIds(): string[] {
-  return parseAdminList(process.env.ADMIN_CLERK_IDS);
+  return getConfig().adminClerkIds;
 }
 
 export function shouldBootstrapAdmin(opts: {

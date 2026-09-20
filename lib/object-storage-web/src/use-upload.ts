@@ -7,6 +7,32 @@ interface UploadMetadata {
   contentType: string;
 }
 
+export type UploadVisibility = 'public' | 'private';
+
+type AuthTokenGetter = () => Promise<string | null> | string | null;
+
+let _authTokenGetter: AuthTokenGetter | null = null;
+
+/**
+ * Register a getter that supplies a bearer auth token for upload-URL
+ * requests. Required on split-origin deploys (Vercel → Render) where
+ * session cookies never reach the API. Call once at app startup
+ * (alongside the API client's own token bridge).
+ */
+export function setUploadAuthTokenGetter(getter: AuthTokenGetter | null): void {
+  _authTokenGetter = getter;
+}
+
+async function authHeaders(): Promise<Record<string, string>> {
+  if (!_authTokenGetter) return {};
+  try {
+    const token = await _authTokenGetter();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
 interface UploadResponse {
   uploadURL: string;
   objectPath: string;
@@ -16,6 +42,8 @@ interface UploadResponse {
 interface UseUploadOptions {
   /** Base path where object storage routes are mounted (default: "/api/storage") */
   basePath?: string;
+  /** Object visibility requested from the backend (default: "public"). */
+  visibility?: UploadVisibility;
   onSuccess?: (response: UploadResponse) => void;
   onError?: (error: Error) => void;
 }
@@ -65,11 +93,13 @@ export function useUpload(options: UseUploadOptions = {}) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(await authHeaders()),
         },
         body: JSON.stringify({
           name: file.name,
           size: file.size,
           contentType: file.type || 'application/octet-stream',
+          visibility: options.visibility ?? 'public',
         }),
       });
 
@@ -140,11 +170,13 @@ export function useUpload(options: UseUploadOptions = {}) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(await authHeaders()),
         },
         body: JSON.stringify({
           name: file.name,
           size: file.size,
           contentType: file.type || 'application/octet-stream',
+          visibility: options.visibility ?? 'public',
         }),
       });
 

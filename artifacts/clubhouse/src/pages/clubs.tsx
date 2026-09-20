@@ -5,8 +5,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useListClubs, useGetClub, getGetClubQueryKey, getListClubsQueryKey,
   useCreateClub, useUpdateClub, useCreateClubMember, useDeleteClubMember,
-  useCreateClubEvent, useDeleteClubEvent,
+  useCreateClubEvent, useDeleteClubEvent, useDeleteClub,
+  useGetMyProfile, getGetMyProfileQueryKey,
 } from "@workspace/api-client-react";
+import { DeleteConfirm } from "@/components/delete-confirm";
+import { ReportDialog } from "@/components/report-dialog";
 import type { Club, ClubMember, ClubManagementEvent } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
 import { AppLayout } from "@/components/layout";
@@ -17,11 +20,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, CalendarDays, ExternalLink, FileText, ImagePlus, Plus, Settings, Trash2, Users } from "lucide-react";
+import { appConfig } from "@/lib/config";
+import { ArrowLeft, CalendarDays, ExternalLink, FileText, Flag, ImagePlus, Plus, Settings, Trash2, Users } from "lucide-react";
 
 function assetUrl(path?: string | null) {
   if (!path) return null;
-  return path.startsWith("http") ? path : `/api/storage/objects/${path.replace(/^\/objects\//, "")}`;
+  if (path.startsWith("http")) return path;
+  // Same-origin in single-host dev; absolute API base in split prod deploys.
+  const base = appConfig.apiUrl.replace(/\/+$/, "");
+  return `${base}/api/storage/objects/${path.replace(/^\/objects\//, "")}`;
 }
 
 function UploadButton({ accept, label, onUploaded }: { accept: string; label: string; onUploaded: (path: string, name: string) => void }) {
@@ -142,6 +149,8 @@ export function ClubRegister() {
 export function ClubProfile() {
   const [, params] = useRoute("/clubs/:clubId");
   const id = Number(params?.clubId);
+  const { isSignedIn } = useAuth();
+  const [reportOpen, setReportOpen] = useState(false);
   const { data, isLoading } = useGetClub(id, { query: { queryKey: getGetClubQueryKey(id), enabled: Number.isInteger(id) } });
   const club = data as Club | undefined;
   if (isLoading) return <AppLayout><div className="mx-auto max-w-5xl p-6"><Skeleton className="h-48 rounded-xl" /></div></AppLayout>;
@@ -160,6 +169,11 @@ export function ClubProfile() {
               <div className="flex-1"><h1 className="text-3xl font-bold">{club.name}</h1><p className="mt-2 max-w-2xl text-muted-foreground">{club.description}</p></div>
               {brochure && <a href={brochure} target="_blank" rel="noreferrer"><Button variant="outline" className="gap-2"><FileText className="h-4 w-4" /> {club.brochureName || "Club brochure"}</Button></a>}
               <Link href={`/clubs/${club.id}/admin`}><Button variant="outline" size="icon" aria-label="Club settings"><Settings className="h-4 w-4" /></Button></Link>
+              {isSignedIn && (
+                <Button variant="ghost" size="icon" onClick={() => setReportOpen(true)} aria-label="Report club" data-testid="button-report-club">
+                  <Flag className="h-4 w-4" />
+                </Button>
+              )}
             </div>
             <div className="mt-5 flex gap-5 text-sm text-muted-foreground"><span className="flex items-center gap-1.5"><Users className="h-4 w-4" /> {club.memberCount} team members</span><span className="flex items-center gap-1.5"><CalendarDays className="h-4 w-4" /> {club.eventCount} events</span></div>
           </CardContent>
@@ -168,6 +182,13 @@ export function ClubProfile() {
           <Card><CardHeader><CardTitle className="text-lg">Team</CardTitle></CardHeader><CardContent className="space-y-3">{club.members?.length ? club.members.map((member) => <div key={member.id} className="flex items-center justify-between rounded-lg bg-muted/50 p-3"><div><p className="font-medium">{member.name}</p><p className="text-sm text-muted-foreground">{member.role}</p></div></div>) : <p className="text-sm text-muted-foreground">The team will be added soon.</p>}</CardContent></Card>
           <Card><CardHeader><CardTitle className="text-lg">Upcoming events</CardTitle></CardHeader><CardContent className="space-y-3">{club.events?.length ? club.events.map((event) => <div key={event.id} className="rounded-lg border p-4">{assetUrl(event.bannerPath) && <img src={assetUrl(event.bannerPath)!} alt="" className="mb-3 h-28 w-full rounded-md object-cover" />}<div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{event.title}</p><p className="mt-1 text-sm text-muted-foreground">{new Date(event.scheduledAt).toLocaleString()}</p>{event.description && <p className="mt-2 text-sm">{event.description}</p>}</div><CalendarDays className="h-5 w-5 text-primary" /></div></div>) : <p className="text-sm text-muted-foreground">No events have been announced yet.</p>}</CardContent></Card>
         </div>
+        <ReportDialog
+          open={reportOpen}
+          onOpenChange={setReportOpen}
+          targetType="club"
+          targetId={String(club.id)}
+          targetLabel="club"
+        />
       </div>
     </AppLayout>
   );
@@ -177,8 +198,13 @@ export function ClubAdmin() {
   const [, params] = useRoute("/clubs/:clubId/admin");
   const id = Number(params?.clubId);
   const { userId } = useAuth();
+  const [, navigate] = useLocation();
   const { data, isLoading } = useGetClub(id, { query: { queryKey: getGetClubQueryKey(id), enabled: Number.isInteger(id) } });
   const club = data as Club | undefined;
+  const { data: profile, isLoading: profileLoading } = useGetMyProfile({
+    query: { queryKey: getGetMyProfileQueryKey(), enabled: Boolean(userId) },
+  });
+  const typedProfile = profile as { role?: string } | null | undefined;
   const { toast } = useToast();
   const qc = useQueryClient();
   const updateClub = useUpdateClub();
@@ -186,6 +212,7 @@ export function ClubAdmin() {
   const deleteMember = useDeleteClubMember();
   const addEvent = useCreateClubEvent();
   const deleteEvent = useDeleteClubEvent();
+  const removeClub = useDeleteClub();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [logoPath, setLogoPath] = useState<string | null>(null);
@@ -197,15 +224,20 @@ export function ClubAdmin() {
   const [eventDate, setEventDate] = useState("");
   const [eventDescription, setEventDescription] = useState("");
   const [eventBanner, setEventBanner] = useState<string | null>(null);
+  const [deleteClubOpen, setDeleteClubOpen] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<ClubManagementEvent | null>(null);
 
-  if (isLoading) return <AppLayout><div className="mx-auto max-w-5xl p-6"><Skeleton className="h-96 rounded-xl" /></div></AppLayout>;
+  if (isLoading || profileLoading) return <AppLayout><div className="mx-auto max-w-5xl p-6"><Skeleton className="h-96 rounded-xl" /></div></AppLayout>;
   if (!club) return <AppLayout><div className="p-6 text-center">Club not found.</div></AppLayout>;
-  if (club.createdBy !== userId) return <AppLayout><div className="mx-auto max-w-xl p-6"><Card><CardContent className="p-8 text-center"><h1 className="font-semibold">Admin access required</h1><p className="mt-2 text-sm text-muted-foreground">Only the club administrator can edit this page.</p><Link href={`/clubs/${club.id}`}><Button className="mt-5">Back to club</Button></Link></CardContent></Card></div></AppLayout>;
+  const isOwner = club.createdBy === userId;
+  if (!isOwner && typedProfile?.role !== "admin") return <AppLayout><div className="mx-auto max-w-xl p-6"><Card><CardContent className="p-8 text-center"><h1 className="font-semibold">Admin access required</h1><p className="mt-2 text-sm text-muted-foreground">Only the club administrator can edit this page.</p><Link href={`/clubs/${club.id}`}><Button className="mt-5">Back to club</Button></Link></CardContent></Card></div></AppLayout>;
 
   const refresh = () => qc.invalidateQueries({ queryKey: getGetClubQueryKey(id) });
   const saveProfile = async () => { try { await updateClub.mutateAsync({ clubId: id, data: { name: name || club.name, description: description || club.description, logoPath: logoPath ?? club.logoPath, brochurePath: brochurePath ?? club.brochurePath, brochureName: brochureName ?? club.brochureName } }); refresh(); toast({ title: "Club profile saved" }); } catch { toast({ title: "Could not save profile", variant: "destructive" }); } };
   const saveMember = async (event: React.FormEvent) => { event.preventDefault(); try { await addMember.mutateAsync({ clubId: id, data: { name: memberName, role: memberRole } }); setMemberName(""); setMemberRole(""); refresh(); } catch { toast({ title: "Could not add team member", variant: "destructive" }); } };
   const saveEvent = async (event: React.FormEvent) => { event.preventDefault(); try { await addEvent.mutateAsync({ clubId: id, data: { title: eventTitle, scheduledAt: new Date(eventDate).toISOString(), description: eventDescription || null, bannerPath: eventBanner } }); setEventTitle(""); setEventDate(""); setEventDescription(""); setEventBanner(null); refresh(); } catch { toast({ title: "Could not create event", variant: "destructive" }); } };
+  const handleDeleteClub = async () => { try { await removeClub.mutateAsync({ clubId: id }); toast({ title: "Club deleted" }); setDeleteClubOpen(false); navigate("/clubs"); } catch { toast({ title: "Could not delete club", variant: "destructive" }); } };
+  const handleDeleteEvent = async () => { if (!eventToDelete) return; try { await deleteEvent.mutateAsync({ clubId: id, eventId: eventToDelete.id }); refresh(); toast({ title: "Event deleted" }); setEventToDelete(null); } catch { toast({ title: "Could not delete event", variant: "destructive" }); } };
   return (
     <AppLayout>
       <div className="mx-auto max-w-5xl p-6">
@@ -213,8 +245,32 @@ export function ClubAdmin() {
         <div className="grid gap-6 lg:grid-cols-2">
           <Card><CardHeader><CardTitle>Club profile</CardTitle></CardHeader><CardContent className="space-y-4"><Input placeholder={club.name} value={name} onChange={(e) => setName(e.target.value)} /><Textarea placeholder={club.description} value={description} onChange={(e) => setDescription(e.target.value)} rows={5} /><div className="flex flex-wrap gap-2"><UploadButton accept="image/png,image/jpeg,image/webp" label={logoPath || club.logoPath ? "Replace logo" : "Upload logo"} onUploaded={(path) => setLogoPath(path)} /><UploadButton accept=".pdf,image/png,image/jpeg" label={brochureName || club.brochureName || "Upload brochure"} onUploaded={(path, fileName) => { setBrochurePath(path); setBrochureName(fileName); }} /></div><Button onClick={saveProfile} disabled={updateClub.isPending}>Save profile</Button></CardContent></Card>
           <Card><CardHeader><CardTitle>Team members</CardTitle></CardHeader><CardContent><form onSubmit={saveMember} className="mb-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><Input placeholder="Name" value={memberName} onChange={(e) => setMemberName(e.target.value)} required /><Input placeholder="Role" value={memberRole} onChange={(e) => setMemberRole(e.target.value)} required /><Button type="submit" size="icon" aria-label="Add team member"><Plus className="h-4 w-4" /></Button></form><div className="space-y-2">{(club.members ?? []).map((member: ClubMember) => <div key={member.id} className="flex items-center justify-between rounded-lg border p-3"><div><p className="font-medium">{member.name}</p><p className="text-sm text-muted-foreground">{member.role}</p></div><Button variant="ghost" size="icon" onClick={async () => { await deleteMember.mutateAsync({ clubId: id, memberId: member.id }); refresh(); }} aria-label={`Remove ${member.name}`}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>)}</div></CardContent></Card>
-          <Card className="lg:col-span-2"><CardHeader><CardTitle>Events</CardTitle></CardHeader><CardContent><form onSubmit={saveEvent} className="grid gap-3 md:grid-cols-2"><Input placeholder="Event title" value={eventTitle} onChange={(e) => setEventTitle(e.target.value)} required /><Input type="datetime-local" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required /><Textarea className="md:col-span-2" placeholder="Event description (optional)" value={eventDescription} onChange={(e) => setEventDescription(e.target.value)} /><div className="flex items-center gap-3"><UploadButton accept="image/png,image/jpeg,image/webp" label={eventBanner ? "Banner uploaded" : "Upload event banner"} onUploaded={(path) => setEventBanner(path)} /><Button type="submit" disabled={addEvent.isPending} className="gap-2"><Plus className="h-4 w-4" /> Create event</Button></div></form><div className="mt-6 grid gap-3 md:grid-cols-2">{(club.events ?? []).map((event: ClubManagementEvent) => <div key={event.id} className="rounded-lg border p-4"><div className="flex justify-between gap-3"><div><p className="font-semibold">{event.title}</p><p className="text-sm text-muted-foreground">{new Date(event.scheduledAt).toLocaleString()}</p></div><Button variant="ghost" size="icon" onClick={async () => { await deleteEvent.mutateAsync({ clubId: id, eventId: event.id }); refresh(); }}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>{event.description && <p className="mt-2 text-sm">{event.description}</p>}</div>)}</div></CardContent></Card>
+          <Card className="lg:col-span-2"><CardHeader><CardTitle>Events</CardTitle></CardHeader><CardContent><form onSubmit={saveEvent} className="grid gap-3 md:grid-cols-2"><Input placeholder="Event title" value={eventTitle} onChange={(e) => setEventTitle(e.target.value)} required /><Input type="datetime-local" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required /><Textarea className="md:col-span-2" placeholder="Event description (optional)" value={eventDescription} onChange={(e) => setEventDescription(e.target.value)} /><div className="flex items-center gap-3"><UploadButton accept="image/png,image/jpeg,image/webp" label={eventBanner ? "Banner uploaded" : "Upload event banner"} onUploaded={(path) => setEventBanner(path)} /><Button type="submit" disabled={addEvent.isPending} className="gap-2"><Plus className="h-4 w-4" /> Create event</Button></div></form><div className="mt-6 grid gap-3 md:grid-cols-2">{(club.events ?? []).map((event: ClubManagementEvent) => <div key={event.id} className="rounded-lg border p-4"><div className="flex justify-between gap-3"><div><p className="font-semibold">{event.title}</p><p className="text-sm text-muted-foreground">{new Date(event.scheduledAt).toLocaleString()}</p></div><Button variant="ghost" size="icon" onClick={() => setEventToDelete(event)} aria-label={`Delete ${event.title}`}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>{event.description && <p className="mt-2 text-sm">{event.description}</p>}</div>)}</div></CardContent></Card>
+          <Card className="lg:col-span-2 border-destructive/40"><CardHeader><CardTitle className="text-destructive">Danger zone</CardTitle></CardHeader><CardContent className="flex flex-col sm:flex-row sm:items-center gap-3"><p className="text-sm text-muted-foreground flex-1">Permanently remove this club, its team list, events and assets. This cannot be undone.</p><Button variant="destructive" className="gap-2" onClick={() => setDeleteClubOpen(true)} data-testid="button-delete-club"><Trash2 className="h-4 w-4" /> Delete club</Button></CardContent></Card>
         </div>
+        <DeleteConfirm
+          open={deleteClubOpen}
+          onOpenChange={setDeleteClubOpen}
+          title="Delete club"
+          statement={`You are about to permanently remove "${club.name}". This cannot be undone.`}
+          consequences={[
+            "All team members will be removed",
+            "All club events will be removed",
+            "Club logo, brochure and banners will be removed",
+          ]}
+          requireTyping
+          confirmLabel="Delete club"
+          pending={removeClub.isPending}
+          onConfirm={handleDeleteClub}
+        />
+        <DeleteConfirm
+          open={eventToDelete !== null}
+          onOpenChange={(next) => { if (!next) setEventToDelete(null); }}
+          title="Delete event"
+          statement={`Remove "${eventToDelete?.title ?? ""}" from this club?`}
+          pending={deleteEvent.isPending}
+          onConfirm={handleDeleteEvent}
+        />
       </div>
     </AppLayout>
   );

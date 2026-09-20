@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useAuth, useUser, UserButton } from "@clerk/react";
+import { useAuth, useUser } from "@clerk/react";
 import { useTheme } from "next-themes";
 import {
   LayoutDashboard, Compass, GraduationCap, Calendar, Bell, UsersRound,
-  User, Shield, Menu, X, Sun, Moon, ChevronDown,
+  User, Shield, Menu, X, Sun, Moon, ChevronDown, LayoutGrid,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useGetUnreadNotificationCount, getGetUnreadNotificationCountQueryKey } from "@workspace/api-client-react";
+import { ProfileMenu } from "@/components/profile-menu";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -25,10 +26,10 @@ const navItems: NavItem[] = [
   { href: "/discover/events", label: "Events", icon: Calendar },
   { href: "/clubs", label: "Clubs", icon: UsersRound },
   { href: "/notifications", label: "Notifications", icon: Bell },
+  { href: "/my", label: "My Space", icon: LayoutGrid },
   { href: "/profile/me", label: "My Profile", icon: User },
   { href: "/admin", label: "Admin", icon: Shield, adminOnly: true },
 ];
-
 function NavLink({ item, active, onClick }: { item: NavItem; active: boolean; onClick?: () => void }) {
   const { isSignedIn } = useAuth();
   const { data: count } = useGetUnreadNotificationCount({
@@ -59,6 +60,16 @@ function NavLink({ item, active, onClick }: { item: NavItem; active: boolean; on
   );
 }
 
+function MobileUnreadDot() {
+  const { isSignedIn } = useAuth();
+  const { data: count } = useGetUnreadNotificationCount({
+    query: { queryKey: getGetUnreadNotificationCountQueryKey(), enabled: Boolean(isSignedIn) }
+  });
+  const unread = (count as { count?: number })?.count ?? 0;
+  if (unread <= 0) return null;
+  return <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />;
+}
+
 export function AppLayout({ children, userRole }: { children: React.ReactNode; userRole?: string }) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -87,7 +98,7 @@ export function AppLayout({ children, userRole }: { children: React.ReactNode; u
           ))}
         </nav>
         <div className="p-3 border-t border-sidebar-border flex items-center gap-2">
-           <UserButton />
+           <ProfileMenu />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.fullName ?? "User"}</p>
           </div>
@@ -147,7 +158,7 @@ export function AppLayout({ children, userRole }: { children: React.ReactNode; u
               ))}
             </nav>
             <div className="p-3 border-t border-sidebar-border flex items-center gap-3">
-               <UserButton />
+               <ProfileMenu />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.fullName ?? "User"}</p>
               </div>
@@ -162,8 +173,38 @@ export function AppLayout({ children, userRole }: { children: React.ReactNode; u
         </div>
       )}
 
+      {/* Mobile bottom navigation */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-sidebar border-t border-sidebar-border flex justify-around px-2 py-1.5" data-testid="nav-mobile-bottom">
+        {[
+          { href: "/dashboard", label: "Home", icon: LayoutDashboard },
+          { href: "/discover", label: "Discover", icon: Compass },
+          { href: "/notifications", label: "Alerts", icon: Bell },
+          { href: "/my", label: "My Space", icon: LayoutGrid },
+          { href: "/profile/me", label: "Profile", icon: User },
+        ].map(item => {
+          const active = location === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              data-testid={`nav-mobile-${item.label.toLowerCase().replace(/\s+/, "-")}`}
+              className={cn(
+                "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-[11px] font-medium min-w-[3.5rem] min-h-[3rem] justify-center",
+                active ? "text-primary" : "text-sidebar-foreground/70",
+              )}
+            >
+              <span className="relative">
+                <item.icon className="h-5 w-5" />
+                {item.href === "/notifications" && <MobileUnreadDot />}
+              </span>
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+
       {/* Main content */}
-      <main className="flex-1 md:pl-64 pt-[3.5rem] md:pt-0">
+      <main className="flex-1 md:pl-64 pt-[3.5rem] pb-20 md:pb-0 md:pt-0">
         <div className="min-h-screen">
           {children}
         </div>

@@ -12,6 +12,9 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { getParam } from "../lib/params";
 import { strictWriteLimit } from "../lib/rateLimit";
+import { canDeleteClub, canDeleteClubManagementEvent } from "../lib/policy";
+import { recordAuditLog } from "../lib/audit";
+import { deleteObject, isGcsConfigured, objectNameFromPath } from "../lib/gcsStorage";
 
 const router = Router();
 
@@ -151,11 +154,36 @@ router.patch("/:clubId", requireAuth, strictWriteLimit(), async (req: Request, r
 });
 
 router.delete("/:clubId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
-  const id = await getManagedClub(req, res);
-  if (!id) return;
+  const { userId } = getAuth(req);
+  const id = Number(getParam(req, "clubId"));
+  if (!Number.isInteger(id) || !userId || !(await canDeleteClub(userId, id))) {
+    res.status(403).json({ error: "Only the club creator or an admin can delete this club." });
+    return;
+  }
+  const before = await getClubOrNull(id);
+  if (!before) {
+    res.status(404).json({ error: "Club not found" });
+    return;
+  }
   await db.delete(clubMembersTable).where(eq(clubMembersTable.clubId, id));
   await db.delete(clubManagementEventsTable).where(eq(clubManagementEventsTable.clubId, id));
   await db.delete(clubsTable).where(eq(clubsTable.id, id));
+  // Best-effort storage cleanup — never fail the resource delete over files.
+  if (isGcsConfigured()) {
+    const paths = [before.logoPath, before.brochurePath];
+    await Promise.all(paths.map(async (p) => {
+      const name = objectNameFromPath(p);
+      if (!name) return;
+      try { await deleteObject(name); } catch { /* ignore */ }
+    }));
+  }
+  await recordAuditLog(req, {
+    action: userId === before.createdBy ? "CREATOR_DELETED_CLUB" : "ADMIN_DELETED_CLUB",
+    entityType: "club",
+    entityId: id,
+    before,
+    metadata: { name: before.name },
+  });
   res.status(204).end();
 });
 
@@ -252,12 +280,36 @@ router.patch("/:clubId/events/:eventId", requireAuth, strictWriteLimit(), async 
 });
 
 router.delete("/:clubId/events/:eventId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
-  const clubId = await getManagedClub(req, res);
-  if (!clubId) return;
-  await db.delete(clubManagementEventsTable).where(and(
-    eq(clubManagementEventsTable.id, Number(getParam(req, "eventId"))),
+  const { userId } = getAuth(req);
+  const clubId = Number(getParam(req, "clubId"));
+  const eventId = Number(getParam(req, "eventId"));
+  if (!Number.isInteger(clubId) || !Number.isInteger(eventId) || !userId ||
+      !(await canDeleteClubManagementEvent(userId, clubId, eventId))) {
+    res.status(403).json({ error: "Only the club owner, the event creator, or an admin can delete this event." });
+    return;
+  }
+  const [before] = await db.select().from(clubManagementEventsTable).where(and(
+    eq(clubManagementEventsTable.id, eventId),
     eq(clubManagementEventsTable.clubId, clubId),
-  ));
+  )).limit(1);
+  if (!before) {
+    res.status(404).json({ error: "Event not found" });
+    return;
+  }
+  await db.delete(clubManagementEventsTable).where(eq(clubManagementEventsTable.id, eventId));
+  if (isGcsConfigured()) {
+    const name = objectNameFromPath(before.bannerPath);
+    if (name) {
+      try { await deleteObject(name); } catch { /* ignore */ }
+    }
+  }
+  await recordAuditLog(req, {
+    action: "CREATOR_DELETED_CLUB_EVENT",
+    entityType: "club_event",
+    entityId: eventId,
+    before,
+    metadata: { clubId },
+  });
   res.status(204).end();
 });
 

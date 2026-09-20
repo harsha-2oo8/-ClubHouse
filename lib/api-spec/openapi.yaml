@@ -1092,6 +1092,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/ProjectEvent"
 
+  /projects/{projectId}/events/{eventId}:
+    delete:
+      operationId: deleteProjectEvent
+      tags: [projects]
+      summary: Delete a project calendar event (owner/event creator/admin)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   # ── EVENTS (hackathons/workshops) ─────────────────────────────────────────────
   /events:
     get:
@@ -1181,6 +1202,44 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ClubEvent"
+    patch:
+      operationId: updateEvent
+      tags: [events]
+      summary: Update an event (creator/host or admin)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClubEventUpdate"
+      responses:
+        "200":
+          description: Updated event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClubEvent"
+    delete:
+      operationId: deleteEvent
+      tags: [events]
+      summary: Delete an event (creator/host or admin)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
 
   /events/{eventId}/register:
     post:
@@ -1440,6 +1499,118 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminStats"
+
+  /admin/audit-logs:
+    get:
+      operationId: adminGetAuditLogs
+      tags: [admin]
+      summary: List admin audit logs (newest first)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: entityType
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminAuditLog"
+
+  # ── REPORTS (moderation) ────────────────────────────────────────────────────
+  /reports:
+    post:
+      operationId: createReport
+      tags: [reports]
+      summary: Report a project, club, event or profile
+      security: [{ clerk: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportInput"
+      responses:
+        "201":
+          description: Report submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+        "409":
+          description: Already reported
+    get:
+      operationId: listReports
+      tags: [reports]
+      summary: List reports by status (admin)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, resolved, dismissed]
+            default: open
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Report"
+
+  /reports/{reportId}:
+    patch:
+      operationId: updateReport
+      tags: [reports]
+      summary: Resolve or dismiss a report (admin)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [resolved, dismissed] }
+      responses:
+        "200":
+          description: Updated report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
 
 components:
   securitySchemes:
@@ -1709,6 +1880,7 @@ components:
         name:        { type: string }
         size:         { type: integer, minimum: 1 }
         contentType: { type: string }
+        visibility:  { type: string, enum: [public, private], default: public }
 
     StorageUploadResponse:
       type: object
@@ -1873,6 +2045,7 @@ components:
         meetLink:    { type: ["string", "null"] }
         scheduledAt: { type: string, format: date-time }
         createdByName: { type: string }
+        createdBy:    { type: string }
         createdAt:   { type: string, format: date-time }
 
     ProjectEventInput:
@@ -1902,11 +2075,25 @@ components:
         maxParticipants:  { type: ["integer", "null"] }
         registrantCount:  { type: integer }
         createdByName:    { type: string }
+        createdBy:        { type: string }
         createdAt:        { type: string, format: date-time }
 
     ClubEventInput:
       type: object
       required: [title, type, startDate, visibility]
+      properties:
+        title:            { type: string }
+        description:      { type: ["string", "null"] }
+        type:             { type: string, enum: [hackathon, workshop, seminar, other] }
+        visibility:       { type: string, enum: [public, college_only] }
+        collegeId:        { type: ["integer", "null"] }
+        startDate:        { type: string, format: date-time }
+        endDate:          { type: ["string", "null"] }
+        registrationLink: { type: ["string", "null"] }
+        maxParticipants:  { type: ["integer", "null"] }
+
+    ClubEventUpdate:
+      type: object
       properties:
         title:            { type: string }
         description:      { type: ["string", "null"] }
@@ -2003,4 +2190,41 @@ components:
         pendingColleges:  { type: integer }
         totalProjects:    { type: integer }
         totalEvents:      { type: integer }
+        totalClubs:       { type: integer }
         pendingModerators: { type: integer }
+        pendingReports:   { type: integer }
+
+    Report:
+      type: object
+      required: [id, reporterId, targetType, targetId, reason, status, createdAt]
+      properties:
+        id:          { type: integer }
+        reporterId:  { type: string }
+        targetType:  { type: string, enum: [project, club, event, profile] }
+        targetId:    { type: string }
+        reason:      { type: string }
+        description: { type: ["string", "null"] }
+        status:      { type: string, enum: [open, resolved, dismissed] }
+        createdAt:   { type: string, format: date-time }
+        resolvedAt:  { type: ["string", "null"], format: date-time }
+        resolvedBy:  { type: ["string", "null"] }
+
+    ReportInput:
+      type: object
+      required: [targetType, targetId, reason]
+      properties:
+        targetType:  { type: string, enum: [project, club, event, profile] }
+        targetId:    { type: string }
+        reason:      { type: string }
+        description: { type: ["string", "null"] }
+
+    AdminAuditLog:
+      type: object
+      required: [id, adminId, action, entityType, entityId, createdAt]
+      properties:
+        id:         { type: integer }
+        adminId:    { type: string }
+        action:     { type: string }
+        entityType: { type: string }
+        entityId:   { type: string }
+        createdAt:  { type: string, format: date-time }

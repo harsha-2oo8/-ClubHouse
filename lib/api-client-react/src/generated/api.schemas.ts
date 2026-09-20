@@ -297,11 +297,20 @@ export interface ClubManagementEventInput {
   bannerPath?: string | null;
 }
 
+export type StorageUploadInputVisibility = typeof StorageUploadInputVisibility[keyof typeof StorageUploadInputVisibility];
+
+
+export const StorageUploadInputVisibility = {
+  public: 'public',
+  private: 'private',
+} as const;
+
 export interface StorageUploadInput {
   name: string;
   /** @minimum 1 */
   size: number;
   contentType: string;
+  visibility?: StorageUploadInputVisibility;
 }
 
 export type StorageUploadResponseMetadata = {
@@ -515,6 +524,7 @@ export interface ProjectEvent {
   meetLink?: string | null;
   scheduledAt: string;
   createdByName?: string;
+  createdBy?: string;
   createdAt: string;
 }
 
@@ -565,6 +575,7 @@ export interface ClubEvent {
   maxParticipants?: number | null;
   registrantCount?: number;
   createdByName?: string;
+  createdBy?: string;
   createdAt: string;
 }
 
@@ -595,6 +606,41 @@ export interface ClubEventInput {
   /** @nullable */
   collegeId?: number | null;
   startDate: string;
+  /** @nullable */
+  endDate?: string | null;
+  /** @nullable */
+  registrationLink?: string | null;
+  /** @nullable */
+  maxParticipants?: number | null;
+}
+
+export type ClubEventUpdateType = typeof ClubEventUpdateType[keyof typeof ClubEventUpdateType];
+
+
+export const ClubEventUpdateType = {
+  hackathon: 'hackathon',
+  workshop: 'workshop',
+  seminar: 'seminar',
+  other: 'other',
+} as const;
+
+export type ClubEventUpdateVisibility = typeof ClubEventUpdateVisibility[keyof typeof ClubEventUpdateVisibility];
+
+
+export const ClubEventUpdateVisibility = {
+  public: 'public',
+  college_only: 'college_only',
+} as const;
+
+export interface ClubEventUpdate {
+  title?: string;
+  /** @nullable */
+  description?: string | null;
+  type?: ClubEventUpdateType;
+  visibility?: ClubEventUpdateVisibility;
+  /** @nullable */
+  collegeId?: number | null;
+  startDate?: string;
   /** @nullable */
   endDate?: string | null;
   /** @nullable */
@@ -698,7 +744,71 @@ export interface AdminStats {
   pendingColleges: number;
   totalProjects: number;
   totalEvents: number;
+  totalClubs?: number;
   pendingModerators?: number;
+  pendingReports?: number;
+}
+
+export type ReportTargetType = typeof ReportTargetType[keyof typeof ReportTargetType];
+
+
+export const ReportTargetType = {
+  project: 'project',
+  club: 'club',
+  event: 'event',
+  profile: 'profile',
+} as const;
+
+export type ReportStatus = typeof ReportStatus[keyof typeof ReportStatus];
+
+
+export const ReportStatus = {
+  open: 'open',
+  resolved: 'resolved',
+  dismissed: 'dismissed',
+} as const;
+
+export interface Report {
+  id: number;
+  reporterId: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  reason: string;
+  /** @nullable */
+  description?: string | null;
+  status: ReportStatus;
+  createdAt: string;
+  /** @nullable */
+  resolvedAt?: string | null;
+  /** @nullable */
+  resolvedBy?: string | null;
+}
+
+export type ReportInputTargetType = typeof ReportInputTargetType[keyof typeof ReportInputTargetType];
+
+
+export const ReportInputTargetType = {
+  project: 'project',
+  club: 'club',
+  event: 'event',
+  profile: 'profile',
+} as const;
+
+export interface ReportInput {
+  targetType: ReportInputTargetType;
+  targetId: string;
+  reason: string;
+  /** @nullable */
+  description?: string | null;
+}
+
+export interface AdminAuditLog {
+  id: number;
+  adminId: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  createdAt: string;
 }
 
 export type SearchUsersParams = {
@@ -754,5 +864,45 @@ status?: string;
 
 export type AdminGetUsersParams = {
 search?: string;
+};
+
+export type AdminGetAuditLogsParams = {
+action?: string;
+entityType?: string;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};
+
+export type ListReportsParams = {
+status?: ListReportsStatus;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};
+
+export type ListReportsStatus = typeof ListReportsStatus[keyof typeof ListReportsStatus];
+
+
+export const ListReportsStatus = {
+  open: 'open',
+  resolved: 'resolved',
+  dismissed: 'dismissed',
+} as const;
+
+export type UpdateReportBodyStatus = typeof UpdateReportBodyStatus[keyof typeof UpdateReportBodyStatus];
+
+
+export const UpdateReportBodyStatus = {
+  resolved: 'resolved',
+  dismissed: 'dismissed',
+} as const;
+
+export type UpdateReportBody = {
+  status: UpdateReportBodyStatus;
 };
 

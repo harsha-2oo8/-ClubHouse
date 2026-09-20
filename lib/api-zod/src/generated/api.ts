@@ -1254,6 +1254,7 @@ export const GetProjectEventsResponseItem = zod.object({
   "meetLink": zod.string().nullish(),
   "scheduledAt": zod.coerce.date(),
   "createdByName": zod.string().optional(),
+  "createdBy": zod.string().optional(),
   "createdAt": zod.coerce.date()
 })
 export const GetProjectEventsResponse = zod.array(GetProjectEventsResponseItem)
@@ -1281,8 +1282,20 @@ export const CreateProjectEventResponse = zod.object({
   "meetLink": zod.string().nullish(),
   "scheduledAt": zod.coerce.date(),
   "createdByName": zod.string().optional(),
+  "createdBy": zod.string().optional(),
   "createdAt": zod.coerce.date()
 })
+
+
+/**
+ * @summary Delete a project calendar event (owner/event creator/admin)
+ */
+export const DeleteProjectEventParams = zod.object({
+  "projectId": zod.coerce.number(),
+  "eventId": zod.coerce.number()
+})
+
+export const DeleteProjectEventResponse = zod.void()
 
 
 /**
@@ -1313,6 +1326,7 @@ export const ListEventsResponseItem = zod.object({
   "maxParticipants": zod.number().nullish(),
   "registrantCount": zod.number().optional(),
   "createdByName": zod.string().optional(),
+  "createdBy": zod.string().optional(),
   "createdAt": zod.coerce.date()
 })
 export const ListEventsResponse = zod.array(ListEventsResponseItem)
@@ -1347,6 +1361,7 @@ export const CreateEventResponse = zod.object({
   "maxParticipants": zod.number().nullish(),
   "registrantCount": zod.number().optional(),
   "createdByName": zod.string().optional(),
+  "createdBy": zod.string().optional(),
   "createdAt": zod.coerce.date()
 })
 
@@ -1355,12 +1370,13 @@ export const CreateEventResponse = zod.object({
  * @summary Request a presigned upload URL
  */
 
-
+export const requestUploadUrlBodyVisibilityDefault = `public`;
 
 export const RequestUploadUrlBody = zod.object({
   "name": zod.string(),
   "size": zod.number().min(1),
-  "contentType": zod.string()
+  "contentType": zod.string(),
+  "visibility": zod.enum(['public', 'private']).default(requestUploadUrlBodyVisibilityDefault)
 })
 
 export const RequestUploadUrlResponse = zod.object({
@@ -1395,8 +1411,57 @@ export const GetEventResponse = zod.object({
   "maxParticipants": zod.number().nullish(),
   "registrantCount": zod.number().optional(),
   "createdByName": zod.string().optional(),
+  "createdBy": zod.string().optional(),
   "createdAt": zod.coerce.date()
 })
+
+
+/**
+ * @summary Update an event (creator/host or admin)
+ */
+export const UpdateEventParams = zod.object({
+  "eventId": zod.coerce.number()
+})
+
+export const UpdateEventBody = zod.object({
+  "title": zod.string().optional(),
+  "description": zod.string().nullish(),
+  "type": zod.enum(['hackathon', 'workshop', 'seminar', 'other']).optional(),
+  "visibility": zod.enum(['public', 'college_only']).optional(),
+  "collegeId": zod.number().nullish(),
+  "startDate": zod.coerce.date().optional(),
+  "endDate": zod.string().nullish(),
+  "registrationLink": zod.string().nullish(),
+  "maxParticipants": zod.number().nullish()
+})
+
+export const UpdateEventResponse = zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "type": zod.enum(['hackathon', 'workshop', 'seminar', 'other']),
+  "visibility": zod.enum(['public', 'college_only']),
+  "collegeId": zod.number().nullish(),
+  "collegeName": zod.string().nullish(),
+  "startDate": zod.coerce.date(),
+  "endDate": zod.string().nullish(),
+  "registrationLink": zod.string().nullish(),
+  "maxParticipants": zod.number().nullish(),
+  "registrantCount": zod.number().optional(),
+  "createdByName": zod.string().optional(),
+  "createdBy": zod.string().optional(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete an event (creator/host or admin)
+ */
+export const DeleteEventParams = zod.object({
+  "eventId": zod.coerce.number()
+})
+
+export const DeleteEventResponse = zod.void()
 
 
 /**
@@ -1649,5 +1714,110 @@ export const AdminGetStatsResponse = zod.object({
   "pendingColleges": zod.number(),
   "totalProjects": zod.number(),
   "totalEvents": zod.number(),
-  "pendingModerators": zod.number().optional()
+  "totalClubs": zod.number().optional(),
+  "pendingModerators": zod.number().optional(),
+  "pendingReports": zod.number().optional()
+})
+
+
+/**
+ * @summary List admin audit logs (newest first)
+ */
+export const adminGetAuditLogsQueryLimitDefault = 50;
+export const adminGetAuditLogsQueryLimitMax = 100;
+
+
+
+export const AdminGetAuditLogsQueryParams = zod.object({
+  "action": zod.coerce.string().optional(),
+  "entityType": zod.coerce.string().optional(),
+  "limit": zod.coerce.number().min(1).max(adminGetAuditLogsQueryLimitMax).default(adminGetAuditLogsQueryLimitDefault)
+})
+
+export const AdminGetAuditLogsResponseItem = zod.object({
+  "id": zod.number(),
+  "adminId": zod.string(),
+  "action": zod.string(),
+  "entityType": zod.string(),
+  "entityId": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const AdminGetAuditLogsResponse = zod.array(AdminGetAuditLogsResponseItem)
+
+
+/**
+ * @summary Report a project, club, event or profile
+ */
+export const CreateReportBody = zod.object({
+  "targetType": zod.enum(['project', 'club', 'event', 'profile']),
+  "targetId": zod.string(),
+  "reason": zod.string(),
+  "description": zod.string().nullish()
+})
+
+export const CreateReportResponse = zod.object({
+  "id": zod.number(),
+  "reporterId": zod.string(),
+  "targetType": zod.enum(['project', 'club', 'event', 'profile']),
+  "targetId": zod.string(),
+  "reason": zod.string(),
+  "description": zod.string().nullish(),
+  "status": zod.enum(['open', 'resolved', 'dismissed']),
+  "createdAt": zod.coerce.date(),
+  "resolvedAt": zod.coerce.date().nullish(),
+  "resolvedBy": zod.string().nullish()
+})
+
+
+/**
+ * @summary List reports by status (admin)
+ */
+export const listReportsQueryStatusDefault = `open`;
+export const listReportsQueryLimitDefault = 50;
+export const listReportsQueryLimitMax = 100;
+
+
+
+export const ListReportsQueryParams = zod.object({
+  "status": zod.enum(['open', 'resolved', 'dismissed']).default(listReportsQueryStatusDefault),
+  "limit": zod.coerce.number().min(1).max(listReportsQueryLimitMax).default(listReportsQueryLimitDefault)
+})
+
+export const ListReportsResponseItem = zod.object({
+  "id": zod.number(),
+  "reporterId": zod.string(),
+  "targetType": zod.enum(['project', 'club', 'event', 'profile']),
+  "targetId": zod.string(),
+  "reason": zod.string(),
+  "description": zod.string().nullish(),
+  "status": zod.enum(['open', 'resolved', 'dismissed']),
+  "createdAt": zod.coerce.date(),
+  "resolvedAt": zod.coerce.date().nullish(),
+  "resolvedBy": zod.string().nullish()
+})
+export const ListReportsResponse = zod.array(ListReportsResponseItem)
+
+
+/**
+ * @summary Resolve or dismiss a report (admin)
+ */
+export const UpdateReportParams = zod.object({
+  "reportId": zod.coerce.number()
+})
+
+export const UpdateReportBody = zod.object({
+  "status": zod.enum(['resolved', 'dismissed'])
+})
+
+export const UpdateReportResponse = zod.object({
+  "id": zod.number(),
+  "reporterId": zod.string(),
+  "targetType": zod.enum(['project', 'club', 'event', 'profile']),
+  "targetId": zod.string(),
+  "reason": zod.string(),
+  "description": zod.string().nullish(),
+  "status": zod.enum(['open', 'resolved', 'dismissed']),
+  "createdAt": zod.coerce.date(),
+  "resolvedAt": zod.coerce.date().nullish(),
+  "resolvedBy": zod.string().nullish()
 })

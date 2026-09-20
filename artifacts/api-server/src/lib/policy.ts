@@ -6,8 +6,11 @@ import {
   usersTable,
   collegeMembersTable,
   clubsTable,
+  clubEventsTable,
+  clubManagementEventsTable,
   projectsTable,
   projectMembersTable,
+  projectEventsTable,
 } from "@workspace/db";
 
 export type Role = string;
@@ -140,6 +143,91 @@ export async function canManageEvent(
   if (await isAdmin(clerkId)) return true;
   if (collegeId == null) return false;
   return isCollegeModerator(collegeId, clerkId);
+}
+
+// --- Creator / delete policy -----------------------------------------------
+// Rule: only the creator (ownerId/createdBy) or a platform admin may delete.
+// Moderators NEVER gain delete rights over other people's resources.
+
+/** Pure ownership check: does this clerkId own a resource created by ownerId? */
+export function isCreator(clerkId: string, ownerId: string | null | undefined): boolean {
+  return !!ownerId && ownerId === clerkId;
+}
+
+async function fetchOwner(
+  table: "project" | "club" | "clubEvent" | "clubManagementEvent" | "projectEvent",
+  id: number,
+): Promise<string | null> {
+  if (table === "project") {
+    const rows = await db.select({ ownerId: projectsTable.ownerId }).from(projectsTable).where(eq(projectsTable.id, id)).limit(1);
+    return rows[0]?.ownerId ?? null;
+  }
+  if (table === "club") {
+    const rows = await db.select({ createdBy: clubsTable.createdBy }).from(clubsTable).where(eq(clubsTable.id, id)).limit(1);
+    return rows[0]?.createdBy ?? null;
+  }
+  if (table === "clubEvent") {
+    const rows = await db.select({ createdBy: clubEventsTable.createdBy }).from(clubEventsTable).where(eq(clubEventsTable.id, id)).limit(1);
+    return rows[0]?.createdBy ?? null;
+  }
+  if (table === "clubManagementEvent") {
+    const rows = await db.select({ createdBy: clubManagementEventsTable.createdBy }).from(clubManagementEventsTable).where(eq(clubManagementEventsTable.id, id)).limit(1);
+    return rows[0]?.createdBy ?? null;
+  }
+  const rows = await db.select({ createdBy: projectEventsTable.createdBy }).from(projectEventsTable).where(eq(projectEventsTable.id, id)).limit(1);
+  return rows[0]?.createdBy ?? null;
+}
+
+/** Creator of the project, or platform admin override. */
+export async function canDeleteProject(clerkId: string, projectId: number): Promise<boolean> {
+  if (await isAdmin(clerkId)) return true;
+  return isCreator(clerkId, await fetchOwner("project", projectId));
+}
+
+/** Creator of the club, or platform admin override. */
+export async function canDeleteClub(clerkId: string, clubId: number): Promise<boolean> {
+  if (await isAdmin(clerkId)) return true;
+  return isCreator(clerkId, await fetchOwner("club", clubId));
+}
+
+/** Creator/host of the global event, or platform admin override. */
+export async function canDeleteEvent(clerkId: string, eventId: number): Promise<boolean> {
+  if (await isAdmin(clerkId)) return true;
+  return isCreator(clerkId, await fetchOwner("clubEvent", eventId));
+}
+
+/** Club owner, event creator, or platform admin. Verifies the event belongs to the club. */
+export async function canDeleteClubManagementEvent(
+  clerkId: string,
+  clubId: number,
+  eventId: number,
+): Promise<boolean> {
+  if (await isAdmin(clerkId)) return true;
+  if (await isClubOwner(clubId, clerkId)) return true;
+  const rows = await db
+    .select({ clubId: clubManagementEventsTable.clubId, createdBy: clubManagementEventsTable.createdBy })
+    .from(clubManagementEventsTable)
+    .where(eq(clubManagementEventsTable.id, eventId))
+    .limit(1);
+  if (!rows.length || rows[0].clubId !== clubId) return false;
+  return isCreator(clerkId, rows[0].createdBy);
+}
+
+/** Project owner, event creator, or platform admin. Verifies the event belongs to the project. */
+export async function canDeleteProjectEvent(
+  clerkId: string,
+  projectId: number,
+  eventId: number,
+): Promise<boolean> {
+  if (await isAdmin(clerkId)) return true;
+  if (await isProjectOwner(projectId, clerkId)) return true;
+  const rows = await db
+    .select({ projectId: projectEventsTable.projectId, createdBy: projectEventsTable.createdBy })
+    .from(projectEventsTable)
+    .where(eq(projectEventsTable.id, eventId))
+    .limit(1);
+  if (!rows.length || rows[0].projectId !== projectId) return false;
+  return isCreator(clerkId, rows[0].createdBy);
 }
 
 // --- Express middleware factories ---

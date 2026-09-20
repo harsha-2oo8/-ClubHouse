@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { getAuth } from "@clerk/express";
+import { getConfig } from "./config";
 
 type Bucket = { count: number; resetAt: number };
 const buckets = new Map<string, Bucket>();
@@ -41,8 +42,18 @@ export function rateLimit(options: RateLimitOptions) {
   };
 }
 
-/** Sensible defaults for write-heavy endpoints. */
-export const strictWriteLimit = () =>
-  rateLimit({ windowMs: 60_000, max: 20 });
+/** Sensible defaults for write-heavy endpoints (tunable via RATE_LIMIT_* env). */
+export const strictWriteLimit = () => {
+  const { windowMs, writeMax } = getConfig().rateLimit;
+  return rateLimit({ windowMs, max: writeMax });
+};
 
-export const searchLimit = () => rateLimit({ windowMs: 60_000, max: 60 });
+export const searchLimit = () => {
+  const { windowMs, searchMax } = getConfig().rateLimit;
+  return rateLimit({ windowMs, max: searchMax });
+};
+
+/** Test-only: clear in-memory buckets. */
+export function resetRateLimitForTests(): void {
+  buckets.clear();
+}

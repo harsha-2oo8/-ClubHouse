@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@clerk/react";
-import { Calendar, Users, ExternalLink, Plus, Filter } from "lucide-react";
-import { useListEvents, getListEventsQueryKey, useGetMyProfile, getGetMyProfileQueryKey, useCreateEvent, useRegisterForEvent } from "@workspace/api-client-react";
+import { Calendar, Users, ExternalLink, Plus, Filter, Pencil, Trash2, Flag } from "lucide-react";
+import { useListEvents, getListEventsQueryKey, useGetMyProfile, getGetMyProfileQueryKey, useCreateEvent, useRegisterForEvent, useUpdateEvent, useDeleteEvent } from "@workspace/api-client-react";
+import { DeleteConfirm } from "@/components/delete-confirm";
+import { ReportDialog } from "@/components/report-dialog";
 import { AppLayout } from "@/components/layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -41,7 +43,15 @@ const createSchema = z.object({
 
 type CreateValues = z.infer<typeof createSchema>;
 
-function EventCard({ event, onRegister }: { event: Record<string, unknown>; onRegister: (id: number) => void }) {
+function EventCard({ event, onRegister, canManage, onEdit, onDelete, signedIn, onReport }: {
+  event: Record<string, unknown>;
+  onRegister: (id: number) => void;
+  canManage: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+  signedIn: boolean;
+  onReport: () => void;
+}) {
   const start = new Date(String(event.startDate));
   const end = event.endDate ? new Date(String(event.endDate)) : null;
   return (
@@ -97,6 +107,21 @@ function EventCard({ event, onRegister }: { event: Record<string, unknown>; onRe
               Register
             </Button>
           )}
+          {canManage && (
+            <>
+              <Button size="icon" variant="outline" className="h-8 w-8 flex-shrink-0" onClick={onEdit} aria-label="Edit event" data-testid={`button-edit-event-${event.id}`}>
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button size="icon" variant="ghost" className="h-8 w-8 flex-shrink-0 text-destructive hover:bg-destructive/10" onClick={onDelete} aria-label="Delete event" data-testid={`button-delete-event-${event.id}`}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </>
+          )}
+          {signedIn && !canManage && (
+            <Button size="icon" variant="ghost" className="h-8 w-8 flex-shrink-0 text-muted-foreground" onClick={onReport} aria-label="Report event" data-testid={`button-report-event-${event.id}`}>
+              <Flag className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -104,9 +129,12 @@ function EventCard({ event, onRegister }: { event: Record<string, unknown>; onRe
 }
 
 export default function DiscoverEvents() {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, userId } = useAuth();
   const [typeFilter, setTypeFilter] = useState("all");
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<Record<string, unknown> | null>(null);
+  const [eventToDelete, setEventToDelete] = useState<Record<string, unknown> | null>(null);
+  const [reportTarget, setReportTarget] = useState<Record<string, unknown> | null>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -114,6 +142,8 @@ export default function DiscoverEvents() {
   const { data: events, isLoading } = useListEvents(undefined, { query: { queryKey: getListEventsQueryKey() } });
   const createEvent = useCreateEvent();
   const registerForEvent = useRegisterForEvent();
+  const updateEvent = useUpdateEvent();
+  const removeEvent = useDeleteEvent();
 
   const form = useForm<CreateValues>({
     resolver: zodResolver(createSchema),
@@ -125,22 +155,71 @@ export default function DiscoverEvents() {
 
   const filtered = typedEvents.filter(e => typeFilter === "all" || e.type === typeFilter);
 
-  async function handleCreate(values: CreateValues) {
-    try {
-      await createEvent.mutateAsync({
-        data: {
-          ...values,
-          endDate: values.endDate || undefined,
-          registrationLink: values.registrationLink || undefined,
-          maxParticipants: values.maxParticipants,
-        }
-      });
-      qc.invalidateQueries({ queryKey: getListEventsQueryKey() });
-      toast({ title: "Event created!" });
-      setCreateOpen(false);
+  const canManageEvent = (e: Record<string, unknown>) =>
+    Boolean(userId && (e.createdBy === userId || typedProfile?.role === "admin"));
+
+  function toDateTimeLocal(value: unknown): string {
+    if (!value) return "";
+    const d = new Date(String(value));
+    if (Number.isNaN(d.getTime())) return "";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function startEdit(e: Record<string, unknown>) {
+    setEditingEvent(e);
+    form.reset({
+      title: String(e.title ?? ""),
+      description: String(e.description ?? ""),
+      type: (typeof e.type === "string" ? e.type : "other") as CreateValues["type"],
+      visibility: (typeof e.visibility === "string" ? e.visibility : "public") as CreateValues["visibility"],
+      startDate: toDateTimeLocal(e.startDate),
+      endDate: toDateTimeLocal(e.endDate),
+      registrationLink: String(e.registrationLink ?? ""),
+    });
+    setCreateOpen(true);
+  }
+
+  function closeDialog(next: boolean) {
+    setCreateOpen(next);
+    if (!next) {
+      setEditingEvent(null);
       form.reset();
+    }
+  }
+
+  async function handleSubmit(values: CreateValues) {
+    const payload = {
+      ...values,
+      startDate: new Date(values.startDate).toISOString(),
+      endDate: values.endDate ? new Date(values.endDate).toISOString() : undefined,
+      registrationLink: values.registrationLink || undefined,
+      maxParticipants: values.maxParticipants,
+    };
+    try {
+      if (editingEvent) {
+        await updateEvent.mutateAsync({ eventId: Number(editingEvent.id), data: payload });
+        toast({ title: "Event updated!" });
+      } else {
+        await createEvent.mutateAsync({ data: payload });
+        toast({ title: "Event created!" });
+      }
+      qc.invalidateQueries({ queryKey: getListEventsQueryKey() });
+      closeDialog(false);
     } catch {
-      toast({ title: "Error creating event", variant: "destructive" });
+      toast({ title: editingEvent ? "Error updating event" : "Error creating event", variant: "destructive" });
+    }
+  }
+
+  async function handleDeleteEvent() {
+    if (!eventToDelete) return;
+    try {
+      await removeEvent.mutateAsync({ eventId: Number(eventToDelete.id) });
+      qc.invalidateQueries({ queryKey: getListEventsQueryKey() });
+      toast({ title: "Event deleted" });
+      setEventToDelete(null);
+    } catch {
+      toast({ title: "Could not delete event", variant: "destructive" });
     }
   }
 
@@ -164,18 +243,18 @@ export default function DiscoverEvents() {
             <p className="text-muted-foreground text-sm mt-0.5">Hackathons, workshops, seminars and more</p>
           </div>
           {isSignedIn && (
-            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <Dialog open={createOpen} onOpenChange={closeDialog}>
               <DialogTrigger asChild>
-                <Button className="gap-2" data-testid="button-create-event">
+                <Button className="gap-2" data-testid="button-create-event" onClick={() => { setEditingEvent(null); form.reset(); }}>
                   <Plus className="h-4 w-4" /> Create Event
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Create a new event</DialogTitle>
+                  <DialogTitle>{editingEvent ? "Edit event" : "Create a new event"}</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
-                  <form onSubmit={form.handleSubmit(handleCreate)} className="space-y-4">
+                  <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                     <FormField control={form.control} name="title" render={({ field }) => (
                       <FormItem><FormLabel>Title</FormLabel><FormControl><Input data-testid="input-event-title" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -217,8 +296,8 @@ export default function DiscoverEvents() {
                     <FormField control={form.control} name="registrationLink" render={({ field }) => (
                       <FormItem><FormLabel>External Registration Link <span className="text-muted-foreground font-normal">(optional)</span></FormLabel><FormControl><Input placeholder="https://..." data-testid="input-reg-link" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
-                    <Button type="submit" className="w-full" disabled={createEvent.isPending} data-testid="button-submit-event">
-                      {createEvent.isPending ? "Creating..." : "Create Event"}
+                    <Button type="submit" className="w-full" disabled={createEvent.isPending || updateEvent.isPending} data-testid="button-submit-event">
+                      {editingEvent ? (updateEvent.isPending ? "Saving..." : "Save changes") : (createEvent.isPending ? "Creating..." : "Create Event")}
                     </Button>
                   </form>
                 </Form>
@@ -255,8 +334,40 @@ export default function DiscoverEvents() {
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map(e => <EventCard key={String(e.id)} event={e} onRegister={handleRegister} />)}
+            {filtered.map(e => (
+              <EventCard
+                key={String(e.id)}
+                event={e}
+                onRegister={handleRegister}
+                canManage={canManageEvent(e)}
+                onEdit={() => startEdit(e)}
+                onDelete={() => setEventToDelete(e)}
+                signedIn={Boolean(isSignedIn)}
+                onReport={() => setReportTarget(e)}
+              />
+            ))}
           </div>
+        )}
+        <DeleteConfirm
+          open={eventToDelete !== null}
+          onOpenChange={(next) => { if (!next) setEventToDelete(null); }}
+          title="Delete event"
+          statement={`Permanently remove "${eventToDelete ? String(eventToDelete.title) : ""}"? This cannot be undone.`}
+          consequences={[
+            "All registrations for this event will be removed",
+            "Registered students will be notified of the cancellation",
+          ]}
+          pending={removeEvent.isPending}
+          onConfirm={handleDeleteEvent}
+        />
+        {reportTarget && (
+          <ReportDialog
+            open={reportTarget !== null}
+            onOpenChange={(next) => { if (!next) setReportTarget(null); }}
+            targetType="event"
+            targetId={String(reportTarget.id)}
+            targetLabel="event"
+          />
         )}
       </div>
     </AppLayout>

@@ -1,31 +1,69 @@
-# Security
+# Security (production)
 
-## Authentication
+## Authentication — Clerk only, production instance required
 
-Clerk only. Frontend `@clerk/react` (`VITE_CLERK_PUBLISHABLE_KEY`), backend `@clerk/express` `clerkMiddleware` (`CLERK_PUBLISHABLE_KEY`). No custom passwords/OTP. Private storage and all mutating routes require a valid session (401 otherwise).
+- Web: `@clerk/react` + `VITE_CLERK_PUBLISHABLE_KEY`. API: `@clerk/express`
+  `clerkMiddleware` + `CLERK_PUBLISHABLE_KEY`/`CLERK_SECRET_KEY`.
+- Split-origin auth: cookies never cross Vercel→Render, so the SPA attaches
+  `Authorization: Bearer <session JWT>` on every API and upload call
+  (`ClerkTokenBridge`); the API verifies it server-side. `sk_` stays
+  server-side — never `VITE_`.
+- **"Development mode" badge = development Clerk instance.** Fix is
+  operational: production instance (`pk_live_`/`sk_live_`), domains added,
+  env rotated (see PRODUCTION_SETUP.md §4). The app warns at startup
+  (backend log / browser console) when test keys meet production builds.
 
-## Admin bootstrap (env-only, first-boot)
+## Admin
 
-No hardcoded admin identity exists in business logic. Set `ADMIN_EMAILS` and/or `ADMIN_CLERK_IDS` (comma-separated) for initial deployment. A matching user receives `role: "admin"` **only at first profile creation** (`PATCH /users/me` create path via `shouldBootstrapAdmin`). Later role changes come exclusively from the DB `users.role` column. Leave the vars empty afterwards. See `.env.example`.
+Env-only first-boot bootstrap (`ADMIN_EMAILS`/`ADMIN_CLERK_IDS`, once,
+then remove). Afterwards `users.role` is the only truth, enforced by
+`requireAdmin` (401 signed-out, 403 student). No hardcoded identities
+(grep-verified). Verify with `pnpm admin:verify`.
 
-## Authorization (server-side)
+## Authorization (server-side, `src/lib/policy.ts`)
 
-`src/lib/policy.ts` is the single place for access rules: `isAdmin`, `isCollegeMember/Moderator`, `isProjectMember/Owner`, `isClubOwner`, `canEditProject/canManageClub/canModerateCollege/canManageEvent`, plus middleware `requireProjectMember/Owner`, `requireCollegeModerator`, `requireClubOwner`. Frontend role-gating is UX only. Ownership/membership is always re-checked from the DB; client-supplied roles are never trusted.
+Ownership re-checked from the DB on every call; client roles/IDs untrusted.
+Creator-or-admin deletes (`canDeleteProject/Club/Event/...`); moderators
+never delete others' resources; college/event scoping verified by ID match
+(club-event ↔ club, project-event ↔ project). Reports resolve admin-only.
+
+## Network
+
+- CORS: explicit `CORS_ORIGINS` allowlist; reflect fallback logs loudly in
+  prod; `*` never used with credentialed auth. Localhost allowed only in dev.
+- Helmet on (CSP off: `/api/__clerk` proxies Clerk assets — documented
+  exception), `X-Request-ID` on every response, pino request logging with
+  `authorization`/`cookie`/`set-cookie` redaction. Never logged: secrets,
+  tokens, GCS keys, passwords, full profiles.
 
 ## Storage
 
-- `POST /storage/uploads/request-url` requires auth and is rate-limited; returns a 900s presigned PUT.
-- `GET /storage/public-objects/*` is intentionally public; `..` rejected.
-- `GET /storage/objects/*` requires auth, rejects `..`, and enforces object ACL metadata (403 on denial).
+GCS service-account flow (STORAGE.md). Signed PUTs (15 min, authed,
+validated, rate-limited). `public/*` open, `private/*` owner-or-admin.
+Traversal/enumeration blocked; deletes best-effort on resource removal.
 
-## Abuse controls
+## Abuse & integrity
 
-In-memory fixed-window rate limits (20 writes/min default, 60 searches/min) on users, colleges, projects, clubs, events, storage and admin write routes; 429 + `Retry-After` on excess. For multi-instance production, swap `src/lib/rateLimit.ts` for a shared store.
+Rate limits (tunable via `RATE_LIMIT_*`): 20 writes/min, 60 searches/min,
+429 + `Retry-After`; single-instance in-memory (Redis seam documented).
+Unique constraints block duplicate memberships/registrations/applications;
+409s on re-submit. Strict validation on mutations (IDs, enums, dates,
+capacity); creator/`createdBy`/roles always server-assigned, never trusted
+from the client — self-admin impossible.
 
-## Auditing & logging
+## Privacy
 
-Privileged admin actions (college/moderator approvals) write to `admin_audit_logs` with before/after snapshots; secret-like metadata keys are scrubbed. Pino redacts `authorization`/`cookie`/`set-cookie`. Health: `/api/healthz` (liveness), `/api/readyz` (DB readiness).
+Public profile omits email (API + UI). Search (authed) keeps contact info
+for invites. Admin user lists stay admin-only. Audit logs scrub secrets.
 
-## Known limits (not yet done)
+## Audit & monitoring
 
-No SSE realtime yet (chat is REST), no cursor pagination envelopes (bounded `limit` only), no admin audit UI (table + recording exist), no email/push notifications (in-app service seam exists).
+`admin_audit_logs` for approvals, role changes, deletes, report
+resolutions (+ `/admin/audit` UI). `/api/healthz` (liveness),
+`/api/readyz` (DB). CI gates typecheck, tests, codegen drift, build.
+
+## Residual risks (accepted, documented)
+
+No WAF/bot protection; in-memory limiter per instance; no PII encryption
+beyond Postgres defaults; session security delegated to Clerk; realtime
+chat still polling; backups = Supabase daily (verify restores yourself).

@@ -5,6 +5,9 @@ import { eq, and, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { getParam, getLimit } from "../lib/params";
 import { strictWriteLimit } from "../lib/rateLimit";
+import { canDeleteEvent } from "../lib/policy";
+import { notificationService } from "../lib/notify";
+import { recordAuditLog } from "../lib/audit";
 
 const router = Router();
 
@@ -28,7 +31,7 @@ async function formatEvent(e: typeof clubEventsTable.$inferSelect) {
     startDate: e.startDate, endDate: e.endDate ?? null,
     registrationLink: e.registrationLink ?? null, maxParticipants: e.maxParticipants ?? null,
     registrantCount: Number(registrantCount[0]?.count ?? 0),
-    createdByName: creator?.name ?? "", createdAt: e.createdAt,
+    createdByName: creator?.name ?? "", createdBy: e.createdBy, createdAt: e.createdAt,
   };
 }
 
@@ -107,6 +110,98 @@ router.post("/:eventId/register", requireAuth, strictWriteLimit(), async (req: R
     userName: u?.name ?? "", userEmail: u?.email ?? "",
     registeredAt: reg.registeredAt,
   });
+});
+
+// Update event — creator/host or platform admin.
+router.patch("/:eventId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
+  const { userId } = getAuth(req);
+  const id = parseInt(getParam(req, "eventId"));
+  const events = await db.select().from(clubEventsTable).where(eq(clubEventsTable.id, id)).limit(1);
+  if (!events.length) {
+    res.status(404).json({ error: "Event not found" });
+    return;
+  }
+  if (!(await canDeleteEvent(userId!, id))) {
+    res.status(403).json({ error: "Only the event creator or an admin can edit this event." });
+    return;
+  }
+  const { title, description, type, visibility, collegeId, startDate, endDate, registrationLink, maxParticipants } = req.body ?? {};
+  if (title !== undefined && (typeof title !== "string" || title.trim().length < 2)) {
+    res.status(400).json({ error: "title must be at least 2 characters" });
+    return;
+  }
+  const start = startDate !== undefined ? new Date(startDate) : events[0].startDate;
+  const end = endDate !== undefined ? (endDate ? new Date(endDate) : null) : events[0].endDate;
+  if (Number.isNaN(start.getTime()) || (end && Number.isNaN(end.getTime()))) {
+    res.status(400).json({ error: "Invalid date" });
+    return;
+  }
+  if (end && end < start) {
+    res.status(400).json({ error: "endDate must not be before startDate" });
+    return;
+  }
+  if (maxParticipants !== undefined && maxParticipants !== null &&
+      (!Number.isInteger(maxParticipants) || maxParticipants < 1)) {
+    res.status(400).json({ error: "maxParticipants must be a positive integer" });
+    return;
+  }
+  const before = events[0];
+  const [updated] = await db.update(clubEventsTable).set({
+    ...(title !== undefined ? { title: title.trim() } : {}),
+    ...(description !== undefined ? { description } : {}),
+    ...(type !== undefined ? { type } : {}),
+    ...(visibility !== undefined ? { visibility } : {}),
+    ...(collegeId !== undefined ? { collegeId: collegeId ?? null } : {}),
+    ...(startDate !== undefined ? { startDate: start } : {}),
+    ...(endDate !== undefined ? { endDate: end } : {}),
+    ...(registrationLink !== undefined ? { registrationLink: registrationLink || null } : {}),
+    ...(maxParticipants !== undefined ? { maxParticipants: maxParticipants ?? null } : {}),
+  }).where(eq(clubEventsTable.id, id)).returning();
+  await recordAuditLog(req, {
+    action: "CREATOR_UPDATED_EVENT",
+    entityType: "event",
+    entityId: id,
+    before,
+    after: updated,
+  });
+  res.json(await formatEvent(updated));
+});
+
+// Delete event — creator/host or platform admin. Registrations are removed
+// (cascade) and registrants are notified.
+router.delete("/:eventId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
+  const { userId } = getAuth(req);
+  const id = parseInt(getParam(req, "eventId"));
+  const events = await db.select().from(clubEventsTable).where(eq(clubEventsTable.id, id)).limit(1);
+  if (!events.length) {
+    res.status(404).json({ error: "Event not found" });
+    return;
+  }
+  if (!(await canDeleteEvent(userId!, id))) {
+    res.status(403).json({ error: "Only the event creator or an admin can delete this event." });
+    return;
+  }
+  const before = events[0];
+  const regs = await db.select().from(eventRegistrationsTable).where(eq(eventRegistrationsTable.eventId, id));
+  await db.delete(clubEventsTable).where(eq(clubEventsTable.id, id));
+  await recordAuditLog(req, {
+    action: userId === before.createdBy ? "CREATOR_DELETED_EVENT" : "ADMIN_DELETED_EVENT",
+    entityType: "event",
+    entityId: id,
+    before,
+    metadata: { title: before.title },
+  });
+  for (const r of regs) {
+    if (r.clerkId !== userId) {
+      await notificationService.send(
+        r.clerkId,
+        "event_cancelled",
+        `Event "${before.title}" was cancelled.`,
+        "/discover/events",
+      );
+    }
+  }
+  res.status(204).send();
 });
 
 // Get registrations

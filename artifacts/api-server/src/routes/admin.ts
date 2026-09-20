@@ -1,9 +1,9 @@
 import { Router, Request, Response } from "express";
 import { getAuth } from "@clerk/express";
-import { db, collegesTable, usersTable, moderatorApplicationsTable, collegeMembersTable, projectsTable, clubEventsTable, notificationsTable } from "@workspace/db";
-import { eq, and, ilike, sql } from "drizzle-orm";
+import { db, collegesTable, usersTable, moderatorApplicationsTable, collegeMembersTable, projectsTable, clubEventsTable, clubsTable, reportsTable, adminAuditLogsTable } from "@workspace/db";
+import { eq, and, desc, ilike, sql } from "drizzle-orm";
 import { requireAdmin } from "../middlewares/auth";
-import { getParam } from "../lib/params";
+import { getParam, getLimit } from "../lib/params";
 import { notificationService } from "../lib/notify";
 import { recordAuditLog } from "../lib/audit";
 import { strictWriteLimit } from "../lib/rateLimit";
@@ -182,7 +182,9 @@ router.get("/stats", requireAdmin, async (req: Request, res: Response) => {
   const pendingCollegesResult = await db.select({ count: sql<number>`count(*)` }).from(collegesTable).where(eq(collegesTable.status, "pending"));
   const totalProjectsResult = await db.select({ count: sql<number>`count(*)` }).from(projectsTable);
   const totalEventsResult = await db.select({ count: sql<number>`count(*)` }).from(clubEventsTable);
+  const totalClubsResult = await db.select({ count: sql<number>`count(*)` }).from(clubsTable);
   const pendingModeratorsResult = await db.select({ count: sql<number>`count(*)` }).from(moderatorApplicationsTable).where(eq(moderatorApplicationsTable.status, "pending"));
+  const pendingReportsResult = await db.select({ count: sql<number>`count(*)` }).from(reportsTable).where(eq(reportsTable.status, "open"));
 
   res.json({
     totalUsers: Number(totalUsersResult[0]?.count ?? 0),
@@ -190,8 +192,23 @@ router.get("/stats", requireAdmin, async (req: Request, res: Response) => {
     pendingColleges: Number(pendingCollegesResult[0]?.count ?? 0),
     totalProjects: Number(totalProjectsResult[0]?.count ?? 0),
     totalEvents: Number(totalEventsResult[0]?.count ?? 0),
+    totalClubs: Number(totalClubsResult[0]?.count ?? 0),
     pendingModerators: Number(pendingModeratorsResult[0]?.count ?? 0),
+    pendingReports: Number(pendingReportsResult[0]?.count ?? 0),
   });
+});
+
+// Get admin audit logs (paginated, newest first). Optional filters:
+// ?action=ADMIN_DELETED_PROJECT&entityType=project&limit=50
+router.get("/audit-logs", requireAdmin, async (req: Request, res: Response) => {
+  const limit = getLimit(req, 50, 100);
+  const action = typeof req.query.action === "string" && req.query.action ? req.query.action : null;
+  const entityType = typeof req.query.entityType === "string" && req.query.entityType ? req.query.entityType : null;
+  let query = db.select().from(adminAuditLogsTable).$dynamic();
+  if (action) query = query.where(eq(adminAuditLogsTable.action, action));
+  if (entityType) query = query.where(eq(adminAuditLogsTable.entityType, entityType));
+  const rows = await query.orderBy(desc(adminAuditLogsTable.createdAt)).limit(limit);
+  res.json(rows);
 });
 
 export default router;

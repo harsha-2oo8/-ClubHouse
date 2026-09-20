@@ -1,25 +1,22 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { getConfig, isTestClerkKey } from "./lib/config";
 
-const rawPort = process.env["PORT"];
+const config = getConfig();
 
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
+if (config.isProduction && isTestClerkKey(config.clerkSecretKey)) {
+  // Never log the key itself — shape only.
+  logger.warn(
+    "CLERK_SECRET_KEY looks like a development (sk_test_) key while NODE_ENV=production. " +
+      "Clerk will show 'development mode' and production auth may misbehave. Use sk_live_… from a production instance.",
   );
 }
 
-const port = Number(rawPort);
-
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
-
-app.listen(port, (err) => {
+app.listen(config.port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
   }
 
-  logger.info({ port }, "Server listening");
+  logger.info({ port: config.port }, "Server listening");
 });

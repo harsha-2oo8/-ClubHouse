@@ -2,6 +2,18 @@ import { getAuth } from "@clerk/express";
 import type { Request } from "express";
 import { db, adminAuditLogsTable } from "@workspace/db";
 
+const SENSITIVE_KEY_PATTERN = /password|secret|token|session|key/i;
+
+/** Drop secret-like keys from audit metadata. Pure — unit tested. */
+export function scrubMetadata(
+  metadata: Record<string, unknown> | undefined,
+): Record<string, unknown> | null {
+  if (!metadata) return null;
+  return Object.fromEntries(
+    Object.entries(metadata).filter(([k]) => !SENSITIVE_KEY_PATTERN.test(k)),
+  );
+}
+
 export async function recordAuditLog(
   req: Request,
   opts: {
@@ -16,14 +28,7 @@ export async function recordAuditLog(
   const { userId } = getAuth(req);
   if (!userId) return;
   // Never persist secrets/tokens even if callers pass them in metadata.
-  const scrubbed = opts.metadata
-    ? Object.fromEntries(
-        Object.entries(opts.metadata).filter(
-          ([k]) =>
-            !/password|secret|token|session|key/i.test(k),
-        ),
-      )
-    : null;
+  const scrubbed = scrubMetadata(opts.metadata);
   await db.insert(adminAuditLogsTable).values({
     adminId: userId,
     action: opts.action,

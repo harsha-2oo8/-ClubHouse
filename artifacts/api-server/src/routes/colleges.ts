@@ -1,8 +1,9 @@
 import { Router, Request, Response } from "express";
 import { getAuth } from "@clerk/express";
-import { db, collegesTable, collegeMembersTable, collegeJoinRequestsTable, moderatorApplicationsTable, collegeMeetingsTable, usersTable, projectsTable, projectMembersTable, notificationsTable } from "@workspace/db";
+import { db, collegesTable, collegeMembersTable, collegeJoinRequestsTable, moderatorApplicationsTable, collegeMeetingsTable, usersTable, projectsTable, projectMembersTable } from "@workspace/db";
 import { eq, and, ilike, sql, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
+import { notificationService } from "../lib/notify";
 import { getParam, getLimit } from "../lib/params";
 import { strictWriteLimit } from "../lib/rateLimit";
 
@@ -185,13 +186,12 @@ router.patch("/:collegeId/join-requests/:requestId", requireAuth, strictWriteLim
         collegeId, clerkId: updated.clerkId, role: "member",
       });
     }
-    await db.insert(notificationsTable).values({
-      clerkId: updated.clerkId,
-      type: "join_request_approved",
-      message: "Your request to join the college club has been approved!",
-      linkUrl: `/colleges/${collegeId}`,
-      read: false,
-    });
+    await notificationService.send(
+      updated.clerkId,
+      "join_request_approved",
+      "Your request to join the college club has been approved!",
+      `/colleges/${collegeId}`,
+    );
   }
 
   const u = await getUserInfo(updated.clerkId);
@@ -267,13 +267,12 @@ router.patch("/:collegeId/moderator-applications/:applicationId", requireAuth, s
     await db.update(collegeMembersTable)
       .set({ role: "moderator" })
       .where(and(eq(collegeMembersTable.collegeId, collegeId), eq(collegeMembersTable.clerkId, updated.clerkId)));
-    await db.insert(notificationsTable).values({
-      clerkId: updated.clerkId,
-      type: "moderator_approved",
-      message: "Congratulations! Your moderator application has been approved.",
-      linkUrl: `/colleges/${collegeId}`,
-      read: false,
-    });
+    await notificationService.send(
+      updated.clerkId,
+      "moderator_approved",
+      "Congratulations! Your moderator application has been approved.",
+      `/colleges/${collegeId}`,
+    );
   }
 
   const college = await db.select().from(collegesTable).where(eq(collegesTable.id, collegeId)).limit(1);
@@ -350,13 +349,12 @@ router.post("/:collegeId/meetings", requireAuth, strictWriteLimit(), async (req:
   const members = await db.select().from(collegeMembersTable).where(eq(collegeMembersTable.collegeId, id));
   for (const m of members) {
     if (m.clerkId !== userId) {
-      await db.insert(notificationsTable).values({
-        clerkId: m.clerkId,
-        type: "college_meeting",
-        message: `New college club meeting: ${title}`,
-        linkUrl: `/colleges/${id}`,
-        read: false,
-      });
+      await notificationService.send(
+        m.clerkId,
+        "college_meeting",
+        `New college club meeting: ${title}`,
+        `/colleges/${id}`,
+      );
     }
   }
 

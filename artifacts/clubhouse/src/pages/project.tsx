@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { useRoute, Link } from "wouter";
+import { useRoute, Link, useLocation } from "wouter";
 import { useAuth } from "@clerk/react";
-import { Users, Send, Calendar, Plus, Lock, Unlock, Video, Clock, ArrowLeft, Search, UserPlus, Link2, Copy, Check } from "lucide-react";
+import { Users, Send, Calendar, Plus, Lock, Unlock, Video, Clock, ArrowLeft, Search, UserPlus, Link2, Copy, Check, Trash2, Flag } from "lucide-react";
 import {
   useGetProject, getGetProjectQueryKey,
   useGetProjectMembers, getGetProjectMembersQueryKey,
@@ -10,7 +10,10 @@ import {
   useApplyToProject, useSendProjectMessage, useCreateProjectEvent,
   useSearchUsers, useInviteUserToProject, getSearchUsersQueryKey,
   useGetMyProfile, getGetMyProfileQueryKey,
+  useDeleteProject, useDeleteProjectEvent,
 } from "@workspace/api-client-react";
+import { DeleteConfirm } from "@/components/delete-confirm";
+import { ReportDialog } from "@/components/report-dialog";
 import { AppLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +66,10 @@ export default function ProjectPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [invitedIds, setInvitedIds] = useState<string[]>([]);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<Record<string, unknown> | null>(null);
+  const [, setLocation] = useLocation();
   const chatEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -98,6 +105,31 @@ export default function ProjectPage() {
   const sendMessage = useSendProjectMessage();
   const applyToProject = useApplyToProject();
   const createEvent = useCreateProjectEvent();
+  const deleteProject = useDeleteProject();
+  const deleteEvent = useDeleteProjectEvent();
+
+  async function handleDeleteProject() {
+    try {
+      await deleteProject.mutateAsync({ projectId });
+      toast({ title: "Project deleted" });
+      setDeleteOpen(false);
+      setLocation("/discover");
+    } catch {
+      toast({ title: "Could not delete project", variant: "destructive" });
+    }
+  }
+
+  async function handleDeleteEvent() {
+    if (!eventToDelete) return;
+    try {
+      await deleteEvent.mutateAsync({ projectId, eventId: Number(eventToDelete.id) });
+      qc.invalidateQueries({ queryKey: getGetProjectEventsQueryKey(projectId) });
+      toast({ title: "Meeting deleted" });
+      setEventToDelete(null);
+    } catch {
+      toast({ title: "Could not delete meeting", variant: "destructive" });
+    }
+  }
 
   const applyForm = useForm<ApplyValues>({
     resolver: zodResolver(applySchema),
@@ -112,6 +144,9 @@ export default function ProjectPage() {
   const typedMessages = (messages as unknown as Array<Record<string, unknown>>) ?? [];
   const typedEvents = (events as unknown as Array<Record<string, unknown>>) ?? [];
   const typedProfile = profile as { role?: string } | null | undefined;
+  const canDeleteProject = Boolean(
+    userId && typedProject && (typedProject.ownerId === userId || typedProfile?.role === "admin"),
+  );
   const tech = typedProject?.techStack ? String(typedProject.techStack).split(",").map(s => s.trim()).filter(Boolean) : [];
   const requiredRoles = (typedProject?.requiredRoles as Array<{ id: number; role: string; description?: string }>) ?? [];
 
@@ -239,6 +274,29 @@ export default function ProjectPage() {
             </div>
           </div>
           <div className="flex gap-2 flex-shrink-0">
+            {isSignedIn && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-muted-foreground"
+                onClick={() => setReportOpen(true)}
+                aria-label="Report project"
+                data-testid="button-report-project"
+              >
+                <Flag className="h-4 w-4" />
+              </Button>
+            )}
+            {canDeleteProject && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                onClick={() => setDeleteOpen(true)}
+                data-testid="button-delete-project"
+              >
+                <Trash2 className="h-4 w-4" /> Delete
+              </Button>
+            )}
             {!isMember && (typedProject.openForApplications || hasInvite) && isSignedIn && (
               <Dialog open={applyOpen} onOpenChange={setApplyOpen}>
                 <DialogTrigger asChild>
@@ -512,6 +570,18 @@ export default function ProjectPage() {
                           </Button>
                         </a>
                       )}
+                      {Boolean(userId && (e.createdBy === userId || canDeleteProject)) && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="text-destructive hover:bg-destructive/10 flex-shrink-0"
+                          onClick={() => setEventToDelete(e)}
+                          aria-label="Delete meeting"
+                          data-testid={`button-delete-meeting-${e.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -519,6 +589,37 @@ export default function ProjectPage() {
             </TabsContent>
           )}
         </Tabs>
+        <DeleteConfirm
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          title="Delete project"
+          statement={`You are about to permanently remove "${String(typedProject.title)}". This cannot be undone.`}
+          consequences={[
+            "All project messages will be removed",
+            "All memberships and pending applications will be removed",
+            "All scheduled project meetings will be removed",
+            "Members will be notified that the project was deleted",
+          ]}
+          requireTyping
+          confirmLabel="Delete project"
+          pending={deleteProject.isPending}
+          onConfirm={handleDeleteProject}
+        />
+        <DeleteConfirm
+          open={eventToDelete !== null}
+          onOpenChange={(next) => { if (!next) setEventToDelete(null); }}
+          title="Delete meeting"
+          statement={`Remove "${eventToDelete ? String(eventToDelete.title) : ""}" from the project calendar?`}
+          pending={deleteEvent.isPending}
+          onConfirm={handleDeleteEvent}
+        />
+        <ReportDialog
+          open={reportOpen}
+          onOpenChange={setReportOpen}
+          targetType="project"
+          targetId={String(projectId)}
+          targetLabel="project"
+        />
       </div>
     </AppLayout>
   );

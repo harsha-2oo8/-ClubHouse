@@ -1,12 +1,25 @@
-import { describe, expect, it, afterEach } from "vitest";
+import { describe, expect, it, afterEach, beforeEach, vi } from "vitest";
+import { resetConfigForTests } from "./config";
 import {
   parseAdminList,
   shouldBootstrapAdmin,
 } from "./adminBootstrap";
 
+// shouldBootstrapAdmin reads through the validated config singleton,
+// so the minimal REQUIRED env must be stubbed per test.
+beforeEach(() => {
+  resetConfigForTests();
+  vi.stubEnv("PORT", "8080");
+  vi.stubEnv("DATABASE_URL", "postgresql://test:test@localhost:5432/test");
+  vi.stubEnv("CLERK_PUBLISHABLE_KEY", "pk_test_x");
+  vi.stubEnv("CLERK_SECRET_KEY", "sk_test_x");
+});
+
 afterEach(() => {
   delete process.env.ADMIN_EMAILS;
   delete process.env.ADMIN_CLERK_IDS;
+  vi.unstubAllEnvs();
+  resetConfigForTests();
 });
 
 describe("parseAdminList", () => {
