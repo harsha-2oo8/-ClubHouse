@@ -6,6 +6,9 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "admin:verify": "tsx ./src/admin-verify.ts",
+    "seed:demo": "tsx ./src/seed/run.ts",
+    "seed:demo:reset": "tsx ./src/seed/reset.ts",
+    "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -14,6 +17,7 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "@types/pg": "^8.20.0",
-    "tsx": "catalog:"
+    "tsx": "catalog:",
+    "vitest": "^3.2.4"
   }
 }

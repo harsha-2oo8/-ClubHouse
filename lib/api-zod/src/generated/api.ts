@@ -51,6 +51,8 @@ export const GetMyProfileResponse = zod.object({
   "reddit": zod.string().nullish(),
   "whatsapp": zod.string().nullish()
 }).optional(),
+  "showPortfolio": zod.boolean().optional(),
+  "showSocials": zod.boolean().optional(),
   "role": zod.string().optional(),
   "createdAt": zod.coerce.date()
 })
@@ -80,7 +82,9 @@ export const UpdateMyProfileBody = zod.object({
   "facebook": zod.string().nullish(),
   "reddit": zod.string().nullish(),
   "whatsapp": zod.string().nullish()
-}).optional()
+}).optional(),
+  "showPortfolio": zod.boolean().optional(),
+  "showSocials": zod.boolean().optional()
 })
 
 export const UpdateMyProfileResponse = zod.object({
@@ -108,6 +112,8 @@ export const UpdateMyProfileResponse = zod.object({
   "reddit": zod.string().nullish(),
   "whatsapp": zod.string().nullish()
 }).optional(),
+  "showPortfolio": zod.boolean().optional(),
+  "showSocials": zod.boolean().optional(),
   "role": zod.string().optional(),
   "createdAt": zod.coerce.date()
 })
@@ -153,6 +159,8 @@ export const SearchUsersResponseItem = zod.object({
   "reddit": zod.string().nullish(),
   "whatsapp": zod.string().nullish()
 }).optional(),
+  "showPortfolio": zod.boolean().optional(),
+  "showSocials": zod.boolean().optional(),
   "role": zod.string().optional(),
   "createdAt": zod.coerce.date()
 })
@@ -191,6 +199,8 @@ export const GetUserProfileResponse = zod.object({
   "reddit": zod.string().nullish(),
   "whatsapp": zod.string().nullish()
 }).optional(),
+  "showPortfolio": zod.boolean().optional(),
+  "showSocials": zod.boolean().optional(),
   "role": zod.string().optional(),
   "createdAt": zod.coerce.date()
 })
@@ -1699,6 +1709,8 @@ export const AdminGetUsersResponseItem = zod.object({
   "reddit": zod.string().nullish(),
   "whatsapp": zod.string().nullish()
 }).optional(),
+  "showPortfolio": zod.boolean().optional(),
+  "showSocials": zod.boolean().optional(),
   "role": zod.string().optional(),
   "createdAt": zod.coerce.date()
 })

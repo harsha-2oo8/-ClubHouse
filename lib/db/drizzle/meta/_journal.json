@@ -15,6 +15,13 @@
       "when": 1789896308528,
       "tag": "0001_blue_baron_strucker",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789903232527,
+      "tag": "0002_loose_hiroim",
+      "breakpoints": true
     }
   ]
 }

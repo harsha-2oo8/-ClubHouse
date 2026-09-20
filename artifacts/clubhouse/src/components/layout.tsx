@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useGetUnreadNotificationCount, getGetUnreadNotificationCountQueryKey } from "@workspace/api-client-react";
-import { ProfileMenu } from "@/components/profile-menu";
+import { AccountMenu } from "@/components/account-menu";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -98,7 +98,7 @@ export function AppLayout({ children, userRole }: { children: React.ReactNode; u
           ))}
         </nav>
         <div className="p-3 border-t border-sidebar-border flex items-center gap-2">
-           <ProfileMenu />
+           <AccountMenu userRole={userRole} />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.fullName ?? "User"}</p>
           </div>
@@ -158,7 +158,7 @@ export function AppLayout({ children, userRole }: { children: React.ReactNode; u
               ))}
             </nav>
             <div className="p-3 border-t border-sidebar-border flex items-center gap-3">
-               <ProfileMenu />
+               <AccountMenu userRole={userRole} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.fullName ?? "User"}</p>
               </div>

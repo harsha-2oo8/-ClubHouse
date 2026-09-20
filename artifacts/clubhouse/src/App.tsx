@@ -21,6 +21,8 @@ import CollegePage from "@/pages/college";
 import ProjectPage from "@/pages/project";
 import ProfilePage from "@/pages/profile";
 import MySpace from "@/pages/my";
+import SettingsPage from "@/pages/settings";
+import HelpPage from "@/pages/help";
 import NotificationsPage from "@/pages/notifications";
 import AdminPage from "@/pages/admin";
 import NotFound from "@/pages/not-found";
@@ -111,6 +113,8 @@ function AppRouter() {
         <Route path="/profile/me" component={ProfilePage} />
         <Route path="/profile/:userId" component={ProfilePage} />
         <Route path="/my" component={MySpace} />
+        <Route path="/settings" component={SettingsPage} />
+        <Route path="/help" component={HelpPage} />
         <Route path="/notifications" component={NotificationsPage} />
         <Route path="/admin" component={AdminPage} />
         <Route component={NotFound} />

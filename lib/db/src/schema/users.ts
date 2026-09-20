@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -16,6 +16,8 @@ export const usersTable = pgTable("users", {
   role: text("role").notNull().default("user"),
   portfolioProjects: jsonb("portfolio_projects").$type<Array<{title: string; url: string; description?: string}>>().default([]),
   socials: jsonb("socials").$type<{linkedin?: string; github?: string; instagram?: string; facebook?: string; reddit?: string; whatsapp?: string}>().default({}),
+  showPortfolio: boolean("show_portfolio").notNull().default(true),
+  showSocials: boolean("show_socials").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

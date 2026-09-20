@@ -1,12 +1,15 @@
 import { useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { useAuth, useUser } from "@clerk/react";
-import { LayoutDashboard, TrendingUp, Users, Calendar, Bell, ArrowRight, Folder } from "lucide-react";
+import { LayoutDashboard, TrendingUp, Users, Calendar, Bell, ArrowRight, Folder, Sparkles, Check } from "lucide-react";
 import {
   useGetMyProfile, getGetMyProfileQueryKey,
   useGetDashboardStats, getGetDashboardStatsQueryKey,
   useGetDashboardActivity, getGetDashboardActivityQueryKey,
+  useListProjects, getListProjectsQueryKey,
 } from "@workspace/api-client-react";
+import { recommendProjects } from "@/lib/matching";
+import type { MatchableProject } from "@/lib/matching";
 import { AppLayout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,7 +37,7 @@ function StatCard({ label, value, icon: Icon, href, color }: { label: string; va
 }
 
 export default function Dashboard() {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, userId } = useAuth();
   const { user } = useUser();
   const [, setLocation] = useLocation();
 
@@ -60,13 +63,26 @@ export default function Dashboard() {
     }
   }, [profile, setLocation]);
 
-  const typedProfile = profile as { name?: string; role?: string } | null | undefined;
+  const typedProfile = profile as { name?: string; role?: string; bio?: string; course?: string; college?: string } | null | undefined;
   const typedStats = stats as {
     myProjectsCount?: number; myCollegeId?: number; myCollegeName?: string;
     unreadNotifications?: number; upcomingMeetings?: number;
     openProjectsCount?: number; upcomingEvents?: number;
   } | null | undefined;
   const typedActivity = activity as Array<{ id: number; type: string; message: string; linkUrl?: string; createdAt: string }> | null | undefined;
+
+  const { data: projects } = useListProjects(undefined, {
+    query: { queryKey: getListProjectsQueryKey(), enabled: !!isSignedIn },
+  });
+  const matches = recommendProjects(
+    ((projects as unknown as MatchableProject[]) ?? []),
+    {
+      bio: typedProfile?.bio,
+      course: typedProfile?.course,
+      college: typedProfile?.college,
+    },
+    userId ?? null,
+  );
 
   return (
     <AppLayout userRole={typedProfile?.role}>
@@ -136,7 +152,7 @@ export default function Dashboard() {
         </div>
 
         {/* Quick actions + Activity */}
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid lg:grid-cols-3 gap-6 mb-6">
           {/* Quick actions */}
           <div className="lg:col-span-1">
             <Card>
@@ -224,6 +240,36 @@ export default function Dashboard() {
             </Card>
           </div>
         </div>
+
+        {/* Recommended for you — transparent matching, reasons shown */}
+        {matches.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" /> Recommended for you
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {matches.map((m) => (
+                <div key={String(m.project.id)} className="rounded-lg border p-4" data-testid={`match-${m.project.id}`}>
+                  <p className="font-semibold text-sm">{String(m.project.title)}</p>
+                  <ul className="mt-2 space-y-1">
+                    {m.reasons.map((r) => (
+                      <li key={r} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                        <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0 mt-px" /> {r}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href={`/projects/${m.project.id}`}>
+                    <Button variant="outline" size="sm" className="w-full mt-3" data-testid={`button-match-view-${m.project.id}`}>
+                      View project
+                    </Button>
+                  </Link>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </AppLayout>
   );

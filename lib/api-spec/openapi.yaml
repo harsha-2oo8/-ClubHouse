@@ -1665,6 +1665,8 @@ components:
             $ref: "#/components/schemas/PortfolioProject"
         socials:
           $ref: "#/components/schemas/SocialLinks"
+        showPortfolio:  { type: boolean }
+        showSocials:    { type: boolean }
         role:            { type: string }
         createdAt:       { type: string, format: date-time }
 
@@ -1690,6 +1692,8 @@ components:
               description: { type: ["string", "null"] }
         socials:
           $ref: "#/components/schemas/SocialLinks"
+        showPortfolio: { type: boolean }
+        showSocials:   { type: boolean }
 
     # ── COLLEGE ──────────────────────────────────────────────────────────────────
     College:

@@ -23,6 +23,8 @@ function formatUser(u: typeof usersTable.$inferSelect) {
     avatarUrl: u.avatarUrl,
     portfolioProjects: u.portfolioProjects ?? [],
     socials: u.socials ?? {},
+    showPortfolio: u.showPortfolio ?? true,
+    showSocials: u.showSocials ?? true,
     role: u.role,
     createdAt: u.createdAt,
   };
@@ -53,7 +55,7 @@ router.get("/search", requireAuth, searchLimit(), async (req: Request, res: Resp
 
 router.patch("/me", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const { name, age, course, semester, college, pronouns, bio, avatarUrl, portfolioProjects, socials } = req.body;
+  const { name, age, course, semester, college, pronouns, bio, avatarUrl, portfolioProjects, socials, showPortfolio, showSocials } = req.body;
 
   const existing = await db.select().from(usersTable).where(eq(usersTable.clerkId, userId!)).limit(1);
 
@@ -70,6 +72,21 @@ router.patch("/me", requireAuth, strictWriteLimit(), async (req: Request, res: R
   if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl;
   if (portfolioProjects !== undefined) updates.portfolioProjects = portfolioProjects;
   if (socials !== undefined) updates.socials = socials;
+  // Privacy flags: strict booleans only. Role/owner fields are never assignable here.
+  if (showPortfolio !== undefined) {
+    if (typeof showPortfolio !== "boolean") {
+      res.status(400).json({ error: "showPortfolio must be a boolean" });
+      return;
+    }
+    updates.showPortfolio = showPortfolio;
+  }
+  if (showSocials !== undefined) {
+    if (typeof showSocials !== "boolean") {
+      res.status(400).json({ error: "showSocials must be a boolean" });
+      return;
+    }
+    updates.showSocials = showSocials;
+  }
 
   if (!existing.length) {
     // Create profile
@@ -112,8 +129,10 @@ router.get("/:userId", async (req: Request, res: Response) => {
     res.status(404).json({ error: "User not found" });
     return;
   }
-  // Public profile: email is private and never exposed to guests.
+  // Public profile: email is private; portfolio/socials honor privacy flags.
   const { email: _privateEmail, ...publicProfile } = formatUser(users[0]);
+  if (!users[0].showPortfolio) publicProfile.portfolioProjects = [];
+  if (!users[0].showSocials) publicProfile.socials = {};
   res.json(publicProfile);
 });
 

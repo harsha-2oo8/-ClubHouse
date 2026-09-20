@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRoute, Link } from "wouter";
 import { useAuth, useUser } from "@clerk/react";
 import { ArrowRight, Edit2, ExternalLink, Flag, Save, X, Plus, Trash2 } from "lucide-react";
@@ -67,6 +67,21 @@ export default function ProfilePage() {
     });
     setEditing(true);
   }
+
+  // Deep link: /profile/me?edit=1 opens the editor (used by account menu).
+  useEffect(() => {
+    if (
+      isOwnProfile &&
+      !isLoading &&
+      typedProfile &&
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("edit") === "1" &&
+      !editing
+    ) {
+      startEditing();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOwnProfile, isLoading, profile]);
 
   async function saveEdits() {
     try {

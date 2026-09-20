@@ -47,6 +47,8 @@ export interface UserProfile {
   avatarUrl?: string | null;
   portfolioProjects?: PortfolioProject[];
   socials?: SocialLinks;
+  showPortfolio?: boolean;
+  showSocials?: boolean;
   role?: string;
   createdAt: string;
 }
@@ -71,6 +73,8 @@ export interface UserProfileUpdate {
   avatarUrl?: string | null;
   portfolioProjects?: UserProfileUpdatePortfolioProjectsItem[];
   socials?: SocialLinks;
+  showPortfolio?: boolean;
+  showSocials?: boolean;
 }
 
 export type CollegeStatus = typeof CollegeStatus[keyof typeof CollegeStatus];
