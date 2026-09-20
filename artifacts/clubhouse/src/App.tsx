@@ -1,6 +1,8 @@
+import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ClerkProvider, SignIn, SignUp } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, useAuth } from "@clerk/react";
+import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
@@ -40,6 +42,24 @@ function stripBase(path: string): string {
     : path;
 }
 
+/**
+ * Bridges Clerk session tokens into the generated API client.
+ * The SPA is hosted on a different origin than the API (Vercel -> Render),
+ * so session cookies never reach the backend. Every API call instead carries
+ * `Authorization: Bearer <session JWT>`, which @clerk/express verifies
+ * server-side (requires CLERK_SECRET_KEY on the API).
+ */
+function ClerkTokenBridge() {
+  const { getToken, isSignedIn } = useAuth();
+  useEffect(() => {
+    setAuthTokenGetter(() =>
+      getToken().catch(() => null),
+    );
+    return () => setAuthTokenGetter(null);
+  }, [getToken, isSignedIn]);
+  return null;
+}
+
 function AppRouter() {
   const [, setLocation] = useLocation();
   return (
@@ -66,6 +86,7 @@ function AppRouter() {
       routerReplace={(to) => setLocation(stripBase(to))}
       appearance={clerkAppearance}
     >
+      <ClerkTokenBridge />
       <Switch>
         <Route path="/" component={Landing} />
         <Route path="/sign-in/*?" component={SignInPage} />
