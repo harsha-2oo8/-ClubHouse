@@ -161,14 +161,18 @@ async function main() {
     bump("join_requests");
   }
 
-  // --- Projects -----------------------------------------------------------------
+  // --- Projects (keyed by title only: owner ids change on Clerk upgrade) -----------
   for (const p of DEMO_PROJECTS) {
     const owner = cid(p.ownerIndex);
-    const existing = await q<{ id: number }>(
-      `SELECT id FROM projects WHERE title = $1 AND owner_id = $2`, [p.title, owner]);
+    const existing = await q<{ id: number; owner_id: string }>(
+      `SELECT id, owner_id FROM projects WHERE title = $1`, [p.title]);
     let projectId: number;
     if (existing.length) {
       projectId = existing[0].id;
+      // Re-point owner if a Clerk upgrade changed clerk ids after first seed.
+      if (existing[0].owner_id !== owner) {
+        await q(`UPDATE projects SET owner_id = $1 WHERE id = $2`, [owner, projectId]);
+      }
     } else {
       const roles = p.requiredRoles.map((role, i) => ({ id: i + 1, role, description: null }));
       const rows = await q<{ id: number }>(
