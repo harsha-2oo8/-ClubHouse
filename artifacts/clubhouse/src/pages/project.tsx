@@ -71,7 +71,7 @@ export default function ProjectPage() {
   const { data: project, isLoading } = useGetProject(projectId, { query: { queryKey: getGetProjectQueryKey(projectId), enabled: !!projectId } });
   const { data: members } = useGetProjectMembers(projectId, { query: { queryKey: getGetProjectMembersQueryKey(projectId), enabled: !!projectId } });
 
-  const typedMembers = (members as Array<Record<string, unknown>>) ?? [];
+  const typedMembers = (members as unknown as Array<Record<string, unknown>>) ?? [];
   const isMember = typedMembers.some(m => m.clerkId === userId);
   const typedProject = project as Record<string, unknown> | null | undefined;
   const canInvite = !!userId && (
@@ -90,9 +90,9 @@ export default function ProjectPage() {
     },
   );
   const inviteUser = useInviteUserToProject();
-  const typedSearchResults = (searchResults as Array<Record<string, unknown>>) ?? [];
+  const typedSearchResults = (searchResults as unknown as Array<Record<string, unknown>>) ?? [];
 
-  const { data: messages } = useGetProjectMessages(projectId, { query: { queryKey: getGetProjectMessagesQueryKey(projectId), enabled: !!projectId && isMember } });
+  const { data: messages } = useGetProjectMessages(projectId, undefined, { query: { queryKey: getGetProjectMessagesQueryKey(projectId), enabled: !!projectId && isMember } });
   const { data: events } = useGetProjectEvents(projectId, { query: { queryKey: getGetProjectEventsQueryKey(projectId), enabled: !!projectId && isMember } });
 
   const sendMessage = useSendProjectMessage();
@@ -109,8 +109,8 @@ export default function ProjectPage() {
     defaultValues: { title: "", description: "", meetLink: "", scheduledAt: "" },
   });
 
-  const typedMessages = (messages as Array<Record<string, unknown>>) ?? [];
-  const typedEvents = (events as Array<Record<string, unknown>>) ?? [];
+  const typedMessages = (messages as unknown as Array<Record<string, unknown>>) ?? [];
+  const typedEvents = (events as unknown as Array<Record<string, unknown>>) ?? [];
   const typedProfile = profile as { role?: string } | null | undefined;
   const tech = typedProject?.techStack ? String(typedProject.techStack).split(",").map(s => s.trim()).filter(Boolean) : [];
   const requiredRoles = (typedProject?.requiredRoles as Array<{ id: number; role: string; description?: string }>) ?? [];
@@ -226,7 +226,7 @@ export default function ProjectPage() {
                 </Badge>
               )}
             </div>
-            {typedProject.description && (
+            {Boolean(typedProject.description) && (
               <p className="text-muted-foreground mb-3">{String(typedProject.description)}</p>
             )}
             <div className="flex flex-wrap gap-2 mb-3">
@@ -235,7 +235,7 @@ export default function ProjectPage() {
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5"><Users className="h-4 w-4" /> {Number(typedProject.memberCount ?? 0)} members</span>
               <span>by {String(typedProject.ownerName)}</span>
-              {typedProject.collegeName && <span>at {String(typedProject.collegeName)}</span>}
+              {Boolean(typedProject.collegeName) && <span>at {String(typedProject.collegeName)}</span>}
             </div>
           </div>
           <div className="flex gap-2 flex-shrink-0">
@@ -359,7 +359,7 @@ export default function ProjectPage() {
                 {requiredRoles.map(r => (
                   <div key={r.id} className="border border-border rounded-lg px-3 py-2" data-testid={`badge-role-${r.id}`}>
                     <p className="font-medium text-sm">{r.role}</p>
-                    {r.description && <p className="text-xs text-muted-foreground">{r.description}</p>}
+                    {Boolean(r.description) && <p className="text-xs text-muted-foreground">{r.description}</p>}
                   </div>
                 ))}
               </div>
@@ -500,12 +500,12 @@ export default function ProjectPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold">{String(e.title)}</p>
-                        {e.description && <p className="text-sm text-muted-foreground line-clamp-1">{String(e.description)}</p>}
+                        {Boolean(e.description) && <p className="text-sm text-muted-foreground line-clamp-1">{String(e.description)}</p>}
                         <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                           <Clock className="h-3 w-3" /> {format(new Date(String(e.scheduledAt)), "MMM d, yyyy 'at' h:mm a")}
                         </p>
                       </div>
-                      {e.meetLink && (
+                      {Boolean(e.meetLink) && (
                         <a href={String(e.meetLink)} target="_blank" rel="noopener noreferrer">
                           <Button size="sm" variant="outline" className="gap-1.5" data-testid={`button-join-meeting-${e.id}`}>
                             <Video className="h-4 w-4" /> Join

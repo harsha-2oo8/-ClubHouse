@@ -44,7 +44,7 @@ function CollegeCard({ college }: { college: Record<string, unknown> }) {
               <p className="text-xs text-muted-foreground truncate">{String(college.location)}</p>
             </div>
           </div>
-          {college.description && (
+          {Boolean(college.description) && (
             <p className="text-sm text-muted-foreground line-clamp-2 mb-3 flex-1">{String(college.description)}</p>
           )}
           <div className="flex items-center gap-4 mt-auto pt-2 border-t border-border text-xs text-muted-foreground">
@@ -69,7 +69,7 @@ export default function DiscoverColleges() {
   const qc = useQueryClient();
 
   const { data: profile } = useGetMyProfile({ query: { queryKey: getGetMyProfileQueryKey(), enabled: !!isSignedIn } });
-  const { data: colleges, isLoading } = useListColleges({ query: { queryKey: getListCollegesQueryKey() } });
+  const { data: colleges, isLoading } = useListColleges(undefined, { query: { queryKey: getListCollegesQueryKey() } });
   const registerCollege = useRegisterCollege();
 
   const form = useForm<RegisterValues>({
@@ -77,7 +77,7 @@ export default function DiscoverColleges() {
     defaultValues: { name: "", location: "", description: "", website: "" },
   });
 
-  const typedColleges = (colleges as Array<Record<string, unknown>>) ?? [];
+  const typedColleges = (colleges as unknown as Array<Record<string, unknown>>) ?? [];
   const typedProfile = profile as { role?: string } | null | undefined;
 
   const filtered = typedColleges.filter(c =>

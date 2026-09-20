@@ -3,6 +3,8 @@ import { getAuth } from "@clerk/express";
 import { db, collegesTable, collegeMembersTable, collegeJoinRequestsTable, moderatorApplicationsTable, collegeMeetingsTable, usersTable, projectsTable, projectMembersTable, notificationsTable } from "@workspace/db";
 import { eq, and, ilike, sql, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
+import { getParam, getLimit } from "../lib/params";
+import { strictWriteLimit } from "../lib/rateLimit";
 
 const router = Router();
 
@@ -39,15 +41,16 @@ async function formatCollege(c: typeof collegesTable.$inferSelect) {
 // List colleges
 router.get("/", async (req: Request, res: Response) => {
   const { search } = req.query;
-  let query = db.select().from(collegesTable).where(eq(collegesTable.status, "approved"));
+  const limit = getLimit(req);
   const colleges = await db.select().from(collegesTable)
-    .where(search ? and(eq(collegesTable.status, "approved"), ilike(collegesTable.name, `%${search}%`)) : eq(collegesTable.status, "approved"));
+    .where(search ? and(eq(collegesTable.status, "approved"), ilike(collegesTable.name, `%${search}%`)) : eq(collegesTable.status, "approved"))
+    .limit(limit);
   const formatted = await Promise.all(colleges.map(formatCollege));
   res.json(formatted);
 });
 
 // Register college
-router.post("/", requireAuth, async (req: Request, res: Response) => {
+router.post("/", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
   const { name, location, description, logoUrl, website } = req.body;
   if (!name || !location) {
@@ -64,7 +67,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 
 // Get college
 router.get("/:collegeId", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.collegeId);
+  const id = parseInt(getParam(req, "collegeId"));
   const colleges = await db.select().from(collegesTable).where(eq(collegesTable.id, id)).limit(1);
   if (!colleges.length) {
     res.status(404).json({ error: "College not found" });
@@ -75,7 +78,7 @@ router.get("/:collegeId", async (req: Request, res: Response) => {
 
 // Get members
 router.get("/:collegeId/members", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.collegeId);
+  const id = parseInt(getParam(req, "collegeId"));
   const members = await db.select().from(collegeMembersTable).where(eq(collegeMembersTable.collegeId, id));
   const enriched = await Promise.all(members.map(async (m) => {
     const user = await getUserInfo(m.clerkId);
@@ -95,9 +98,9 @@ router.get("/:collegeId/members", async (req: Request, res: Response) => {
 });
 
 // Join college
-router.post("/:collegeId/join", requireAuth, async (req: Request, res: Response) => {
+router.post("/:collegeId/join", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const id = parseInt(req.params.collegeId);
+  const id = parseInt(getParam(req, "collegeId"));
 
   // Check already a member
   const existing = await db.select().from(collegeMembersTable)
@@ -135,7 +138,7 @@ router.post("/:collegeId/join", requireAuth, async (req: Request, res: Response)
 // Get join requests (moderator/admin)
 router.get("/:collegeId/join-requests", requireAuth, async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const id = parseInt(req.params.collegeId);
+  const id = parseInt(getParam(req, "collegeId"));
   const role = await getMemberRole(id, userId!);
   const user = await getUserInfo(userId!);
   if (role !== "moderator" && role !== "admin" && user?.role !== "admin") {
@@ -156,10 +159,10 @@ router.get("/:collegeId/join-requests", requireAuth, async (req: Request, res: R
 });
 
 // Update join request
-router.patch("/:collegeId/join-requests/:requestId", requireAuth, async (req: Request, res: Response) => {
+router.patch("/:collegeId/join-requests/:requestId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const collegeId = parseInt(req.params.collegeId);
-  const requestId = parseInt(req.params.requestId);
+  const collegeId = parseInt(getParam(req, "collegeId"));
+  const requestId = parseInt(getParam(req, "requestId"));
   const { status } = req.body;
 
   const role = await getMemberRole(collegeId, userId!);
@@ -198,7 +201,7 @@ router.patch("/:collegeId/join-requests/:requestId", requireAuth, async (req: Re
 // Get moderator applications
 router.get("/:collegeId/moderator-applications", requireAuth, async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const id = parseInt(req.params.collegeId);
+  const id = parseInt(getParam(req, "collegeId"));
   const user = await getUserInfo(userId!);
   if (user?.role !== "admin") {
     res.status(403).json({ error: "Admin access required" });
@@ -219,9 +222,9 @@ router.get("/:collegeId/moderator-applications", requireAuth, async (req: Reques
 });
 
 // Apply for moderator
-router.post("/:collegeId/moderator-applications", requireAuth, async (req: Request, res: Response) => {
+router.post("/:collegeId/moderator-applications", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const id = parseInt(req.params.collegeId);
+  const id = parseInt(getParam(req, "collegeId"));
   const { motivation } = req.body;
 
   const role = await getMemberRole(id, userId!);
@@ -243,10 +246,10 @@ router.post("/:collegeId/moderator-applications", requireAuth, async (req: Reque
 });
 
 // Update moderator application
-router.patch("/:collegeId/moderator-applications/:applicationId", requireAuth, async (req: Request, res: Response) => {
+router.patch("/:collegeId/moderator-applications/:applicationId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const collegeId = parseInt(req.params.collegeId);
-  const applicationId = parseInt(req.params.applicationId);
+  const collegeId = parseInt(getParam(req, "collegeId"));
+  const applicationId = parseInt(getParam(req, "applicationId"));
   const { status } = req.body;
 
   const user = await getUserInfo(userId!);
@@ -283,10 +286,10 @@ router.patch("/:collegeId/moderator-applications/:applicationId", requireAuth, a
 });
 
 // Update member role
-router.patch("/:collegeId/members/:userId/role", requireAuth, async (req: Request, res: Response) => {
+router.patch("/:collegeId/members/:userId/role", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId: currentUserId } = getAuth(req);
-  const collegeId = parseInt(req.params.collegeId);
-  const targetUserId = req.params.userId;
+  const collegeId = parseInt(getParam(req, "collegeId"));
+  const targetUserId = getParam(req, "userId");
   const { role, customRole } = req.body;
 
   const myRole = await getMemberRole(collegeId, currentUserId!);
@@ -311,7 +314,7 @@ router.patch("/:collegeId/members/:userId/role", requireAuth, async (req: Reques
 // Get college meetings
 router.get("/:collegeId/meetings", requireAuth, async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const id = parseInt(req.params.collegeId);
+  const id = parseInt(getParam(req, "collegeId"));
   const meetings = await db.select().from(collegeMeetingsTable).where(eq(collegeMeetingsTable.collegeId, id));
   const enriched = await Promise.all(meetings.map(async (m) => {
     const u = await getUserInfo(m.createdBy);
@@ -325,9 +328,9 @@ router.get("/:collegeId/meetings", requireAuth, async (req: Request, res: Respon
 });
 
 // Create college meeting
-router.post("/:collegeId/meetings", requireAuth, async (req: Request, res: Response) => {
+router.post("/:collegeId/meetings", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const id = parseInt(req.params.collegeId);
+  const id = parseInt(getParam(req, "collegeId"));
   const { title, description, meetLink, scheduledAt } = req.body;
 
   const role = await getMemberRole(id, userId!);
@@ -367,7 +370,7 @@ router.post("/:collegeId/meetings", requireAuth, async (req: Request, res: Respo
 
 // Get college projects
 router.get("/:collegeId/projects", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.collegeId);
+  const id = parseInt(getParam(req, "collegeId"));
   const { userId } = getAuth(req);
 
   let projects;

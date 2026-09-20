@@ -706,16 +706,31 @@ export type SearchUsersParams = {
  * @minLength 2
  */
 q: string;
+/**
+ * @minimum 1
+ * @maximum 50
+ */
+limit?: number;
 };
 
 export type ListCollegesParams = {
 search?: string;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
 };
 
 export type ListProjectsParams = {
 search?: string;
 status?: string;
 open?: boolean;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
 };
 
 export type GetProjectMessagesParams = {
@@ -726,6 +741,11 @@ before?: number;
 export type ListEventsParams = {
 type?: string;
 collegeId?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
 };
 
 export type AdminGetCollegeRegistrationsParams = {

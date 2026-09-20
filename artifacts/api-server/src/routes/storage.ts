@@ -1,4 +1,5 @@
 import { Readable } from 'stream';
+import { getParam } from "../lib/params";
 import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
@@ -11,6 +12,7 @@ import {
   ObjectStorageService,
 } from '../lib/objectStorage';
 import { getAuth } from '@clerk/express';
+import { strictWriteLimit } from '../lib/rateLimit';
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -25,6 +27,7 @@ const objectStorageService = new ObjectStorageService();
  */
 router.post(
   '/storage/uploads/request-url',
+  strictWriteLimit(),
   async (req: Request, res: Response) => {
     const { userId } = getAuth(req);
     if (!userId) {
@@ -71,8 +74,11 @@ router.get(
   '/storage/public-objects/*filePath',
   async (req: Request, res: Response) => {
     try {
-      const raw = req.params.filePath;
-      const filePath = Array.isArray(raw) ? raw.join('/') : raw;
+      const filePath = getParam(req, "filePath");
+      if (!filePath || filePath.includes("..")) {
+        res.status(400).json({ error: "Invalid file path" });
+        return;
+      }
       const file = await objectStorageService.searchPublicObject(filePath);
       if (!file) {
         res.status(404).json({ error: 'File not found' });
@@ -103,31 +109,35 @@ router.get(
  * GET /storage/objects/*
  *
  * Serve object entities from PRIVATE_OBJECT_DIR.
- * These are served from a separate path from /public-objects and can optionally
- * be protected with authentication or ACL checks based on the use case.
+ * Requires authentication: callers must present a valid Clerk session.
+ * Path traversal is rejected; object ACL metadata is honored when present
+ * (public objects pass, private objects require ownership metadata match).
  */
 router.get('/storage/objects/*path', async (req: Request, res: Response) => {
-  try {
-    const raw = req.params.path;
-    const wildcardPath = Array.isArray(raw) ? raw.join('/') : raw;
+    try {
+      const { userId } = getAuth(req);
+      if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      const wildcardPath = getParam(req, "path");
+      if (!wildcardPath || wildcardPath.includes("..")) {
+        res.status(400).json({ error: "Invalid object path" });
+        return;
+      }
     const objectPath = `/objects/${wildcardPath}`;
     const objectFile =
       await objectStorageService.getObjectEntityFile(objectPath);
 
-    // --- Protected route example (uncomment when using replit-auth) ---
-    // if (!req.isAuthenticated()) {
-    //   res.status(401).json({ error: "Unauthorized" });
-    //   return;
-    // }
-    // const canAccess = await objectStorageService.canAccessObjectEntity({
-    //   userId: req.user.id,
-    //   objectFile,
-    //   requestedPermission: ObjectPermission.READ,
-    // });
-    // if (!canAccess) {
-    //   res.status(403).json({ error: "Forbidden" });
-    //   return;
-    // }
+    const canAccess = await objectStorageService.canAccessObjectEntity({
+      userId,
+      objectFile,
+      requestedPermission: ObjectPermission.READ,
+    });
+    if (!canAccess) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
 
     const response = await objectStorageService.downloadObject(objectFile);
 

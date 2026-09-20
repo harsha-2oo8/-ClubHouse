@@ -3,6 +3,8 @@ import { getAuth } from "@clerk/express";
 import { db, projectsTable, projectMembersTable, projectApplicationsTable, projectMessagesTable, projectEventsTable, usersTable, collegesTable, notificationsTable } from "@workspace/db";
 import { eq, and, ilike, sql, or } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
+import { getParam, getLimit } from "../lib/params";
+import { strictWriteLimit } from "../lib/rateLimit";
 
 const router = Router();
 
@@ -32,6 +34,7 @@ async function formatProject(p: typeof projectsTable.$inferSelect) {
 // List public projects
 router.get("/", async (req: Request, res: Response) => {
   const { search, status, open } = req.query;
+  const limit = getLimit(req);
   let projects = await db.select().from(projectsTable).where(eq(projectsTable.visibility, "public"));
   if (search) {
     projects = projects.filter(p => p.title.toLowerCase().includes(String(search).toLowerCase()));
@@ -42,12 +45,12 @@ router.get("/", async (req: Request, res: Response) => {
   if (open === "true") {
     projects = projects.filter(p => p.openForApplications);
   }
-  const formatted = await Promise.all(projects.map(formatProject));
+  const formatted = await Promise.all(projects.slice(0, limit).map(formatProject));
   res.json(formatted);
 });
 
 // Create project
-router.post("/", requireAuth, async (req: Request, res: Response) => {
+router.post("/", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
   const { title, description, techStack, visibility, collegeId, isJoint, openForApplications, requiredRoles } = req.body;
   if (!title || !visibility) {
@@ -79,7 +82,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 
 // Get project
 router.get("/:projectId", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.projectId);
+  const id = parseInt(getParam(req, "projectId"));
   const projects = await db.select().from(projectsTable).where(eq(projectsTable.id, id)).limit(1);
   if (!projects.length) {
     res.status(404).json({ error: "Project not found" });
@@ -89,9 +92,9 @@ router.get("/:projectId", async (req: Request, res: Response) => {
 });
 
 // Update project
-router.patch("/:projectId", requireAuth, async (req: Request, res: Response) => {
+router.patch("/:projectId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const id = parseInt(req.params.projectId);
+  const id = parseInt(getParam(req, "projectId"));
   const projects = await db.select().from(projectsTable).where(eq(projectsTable.id, id)).limit(1);
   if (!projects.length) {
     res.status(404).json({ error: "Project not found" });
@@ -122,9 +125,9 @@ router.patch("/:projectId", requireAuth, async (req: Request, res: Response) => 
 });
 
 // Delete project
-router.delete("/:projectId", requireAuth, async (req: Request, res: Response) => {
+router.delete("/:projectId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const id = parseInt(req.params.projectId);
+  const id = parseInt(getParam(req, "projectId"));
   const projects = await db.select().from(projectsTable).where(eq(projectsTable.id, id)).limit(1);
   if (!projects.length) {
     res.status(404).json({ error: "Project not found" });
@@ -140,7 +143,7 @@ router.delete("/:projectId", requireAuth, async (req: Request, res: Response) =>
 
 // Get members
 router.get("/:projectId/members", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.projectId);
+  const id = parseInt(getParam(req, "projectId"));
   const members = await db.select().from(projectMembersTable).where(eq(projectMembersTable.projectId, id));
   const enriched = await Promise.all(members.map(async (m) => {
     const u = await getUserInfo(m.clerkId);
@@ -153,9 +156,9 @@ router.get("/:projectId/members", async (req: Request, res: Response) => {
 });
 
 // Invite a user directly to the project
-router.post("/:projectId/invites", requireAuth, async (req: Request, res: Response) => {
+router.post("/:projectId/invites", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const projectId = parseInt(req.params.projectId);
+  const projectId = parseInt(getParam(req, "projectId"));
   const { targetUserId } = req.body as { targetUserId?: string };
 
   if (!targetUserId) {
@@ -219,9 +222,9 @@ router.post("/:projectId/invites", requireAuth, async (req: Request, res: Respon
 });
 
 // Apply to project
-router.post("/:projectId/apply", requireAuth, async (req: Request, res: Response) => {
+router.post("/:projectId/apply", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const id = parseInt(req.params.projectId);
+  const id = parseInt(getParam(req, "projectId"));
   const { appliedRole, message } = req.body;
 
   const existing = await db.select().from(projectApplicationsTable)
@@ -258,7 +261,7 @@ router.post("/:projectId/apply", requireAuth, async (req: Request, res: Response
 // Get applications
 router.get("/:projectId/applications", requireAuth, async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const id = parseInt(req.params.projectId);
+  const id = parseInt(getParam(req, "projectId"));
   const projects = await db.select().from(projectsTable).where(eq(projectsTable.id, id)).limit(1);
   if (!projects.length || projects[0].ownerId !== userId) {
     const user = await getUserInfo(userId!);
@@ -280,10 +283,10 @@ router.get("/:projectId/applications", requireAuth, async (req: Request, res: Re
 });
 
 // Update application
-router.patch("/:projectId/applications/:applicationId", requireAuth, async (req: Request, res: Response) => {
+router.patch("/:projectId/applications/:applicationId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const projectId = parseInt(req.params.projectId);
-  const applicationId = parseInt(req.params.applicationId);
+  const projectId = parseInt(getParam(req, "projectId"));
+  const applicationId = parseInt(getParam(req, "applicationId"));
   const { status } = req.body;
 
   const projects = await db.select().from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
@@ -325,7 +328,7 @@ router.patch("/:projectId/applications/:applicationId", requireAuth, async (req:
 // Get messages
 router.get("/:projectId/messages", requireAuth, async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const id = parseInt(req.params.projectId);
+  const id = parseInt(getParam(req, "projectId"));
   const limit = parseInt(String(req.query.limit ?? "50"));
   const before = req.query.before ? parseInt(String(req.query.before)) : undefined;
 
@@ -354,9 +357,9 @@ router.get("/:projectId/messages", requireAuth, async (req: Request, res: Respon
 });
 
 // Send message
-router.post("/:projectId/messages", requireAuth, async (req: Request, res: Response) => {
+router.post("/:projectId/messages", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const id = parseInt(req.params.projectId);
+  const id = parseInt(getParam(req, "projectId"));
   const { content } = req.body;
 
   const isMember = await db.select().from(projectMembersTable)
@@ -381,7 +384,7 @@ router.post("/:projectId/messages", requireAuth, async (req: Request, res: Respo
 // Get project events
 router.get("/:projectId/events", requireAuth, async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const id = parseInt(req.params.projectId);
+  const id = parseInt(getParam(req, "projectId"));
   const events = await db.select().from(projectEventsTable).where(eq(projectEventsTable.projectId, id));
   const enriched = await Promise.all(events.map(async (e) => {
     const u = await getUserInfo(e.createdBy);
@@ -395,9 +398,9 @@ router.get("/:projectId/events", requireAuth, async (req: Request, res: Response
 });
 
 // Create project event
-router.post("/:projectId/events", requireAuth, async (req: Request, res: Response) => {
+router.post("/:projectId/events", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const id = parseInt(req.params.projectId);
+  const id = parseInt(getParam(req, "projectId"));
   const { title, description, meetLink, scheduledAt } = req.body;
 
   const isMember = await db.select().from(projectMembersTable)

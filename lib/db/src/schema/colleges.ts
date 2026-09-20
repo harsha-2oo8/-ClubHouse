@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp } from "drizzle-orm/pg-core";
+import { index, pgTable, text, integer, timestamp, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -17,40 +17,53 @@ export const collegesTable = pgTable("colleges", {
 
 export const collegeMembersTable = pgTable("college_members", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  collegeId: integer("college_id").notNull().references(() => collegesTable.id),
+  collegeId: integer("college_id").notNull().references(() => collegesTable.id, { onDelete: "cascade" }),
   clerkId: text("clerk_id").notNull(),
   role: text("role").notNull().default("member"),
   customRole: text("custom_role"),
   joinedAt: timestamp("joined_at").notNull().defaultNow(),
-});
+}, (t) => [
+  unique("college_members_college_clerk_unique").on(t.collegeId, t.clerkId),
+  index("college_members_college_idx").on(t.collegeId),
+  index("college_members_clerk_idx").on(t.clerkId),
+]);
 
 export const collegeJoinRequestsTable = pgTable("college_join_requests", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  collegeId: integer("college_id").notNull().references(() => collegesTable.id),
+  collegeId: integer("college_id").notNull().references(() => collegesTable.id, { onDelete: "cascade" }),
   clerkId: text("clerk_id").notNull(),
   status: text("status").notNull().default("pending"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (t) => [
+  unique("college_join_requests_college_clerk_status_unique").on(t.collegeId, t.clerkId, t.status),
+  index("college_join_requests_college_idx").on(t.collegeId),
+]);
 
 export const moderatorApplicationsTable = pgTable("moderator_applications", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  collegeId: integer("college_id").notNull().references(() => collegesTable.id),
+  collegeId: integer("college_id").notNull().references(() => collegesTable.id, { onDelete: "cascade" }),
   clerkId: text("clerk_id").notNull(),
   motivation: text("motivation"),
   status: text("status").notNull().default("pending"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (t) => [
+  unique("moderator_applications_college_clerk_status_unique").on(t.collegeId, t.clerkId, t.status),
+  index("moderator_applications_college_idx").on(t.collegeId),
+]);
 
 export const collegeMeetingsTable = pgTable("college_meetings", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  collegeId: integer("college_id").notNull().references(() => collegesTable.id),
+  collegeId: integer("college_id").notNull().references(() => collegesTable.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description"),
   meetLink: text("meet_link"),
   scheduledAt: timestamp("scheduled_at").notNull(),
   createdBy: text("created_by").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("college_meetings_college_idx").on(t.collegeId),
+  index("college_meetings_scheduled_idx").on(t.collegeId, t.scheduledAt),
+]);
 
 export const insertCollegeSchema = createInsertSchema(collegesTable).omit({ createdAt: true, updatedAt: true });
 export type InsertCollege = z.infer<typeof insertCollegeSchema>;

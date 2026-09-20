@@ -16,6 +16,14 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Readiness check (includes database connectivity)
+ */
+export const ReadinessCheckResponse = zod.object({
+  "status": zod.string()
+})
+
+
+/**
  * @summary Get own profile
  */
 export const GetMyProfileResponse = zod.object({
@@ -110,10 +118,14 @@ export const UpdateMyProfileResponse = zod.object({
  */
 export const searchUsersQueryQMin = 2;
 
+export const searchUsersQueryLimitDefault = 8;
+export const searchUsersQueryLimitMax = 50;
+
 
 
 export const SearchUsersQueryParams = zod.object({
-  "q": zod.coerce.string().min(searchUsersQueryQMin)
+  "q": zod.coerce.string().min(searchUsersQueryQMin),
+  "limit": zod.coerce.number().min(1).max(searchUsersQueryLimitMax).default(searchUsersQueryLimitDefault)
 })
 
 export const SearchUsersResponseItem = zod.object({
@@ -187,8 +199,14 @@ export const GetUserProfileResponse = zod.object({
 /**
  * @summary List all approved colleges
  */
+export const listCollegesQueryLimitDefault = 50;
+export const listCollegesQueryLimitMax = 100;
+
+
+
 export const ListCollegesQueryParams = zod.object({
-  "search": zod.coerce.string().optional()
+  "search": zod.coerce.string().optional(),
+  "limit": zod.coerce.number().min(1).max(listCollegesQueryLimitMax).default(listCollegesQueryLimitDefault)
 })
 
 export const ListCollegesResponseItem = zod.object({
@@ -903,10 +921,16 @@ export const DeleteClubEventResponse = zod.void()
 /**
  * @summary List public projects (discover)
  */
+export const listProjectsQueryLimitDefault = 50;
+export const listProjectsQueryLimitMax = 100;
+
+
+
 export const ListProjectsQueryParams = zod.object({
   "search": zod.coerce.string().optional(),
   "status": zod.coerce.string().optional(),
-  "open": zod.coerce.boolean().optional()
+  "open": zod.coerce.boolean().optional(),
+  "limit": zod.coerce.number().min(1).max(listProjectsQueryLimitMax).default(listProjectsQueryLimitDefault)
 })
 
 export const ListProjectsResponseItem = zod.object({
@@ -1264,9 +1288,15 @@ export const CreateProjectEventResponse = zod.object({
 /**
  * @summary List public hackathons and workshops
  */
+export const listEventsQueryLimitDefault = 50;
+export const listEventsQueryLimitMax = 100;
+
+
+
 export const ListEventsQueryParams = zod.object({
   "type": zod.coerce.string().optional(),
-  "collegeId": zod.coerce.number().optional()
+  "collegeId": zod.coerce.number().optional(),
+  "limit": zod.coerce.number().min(1).max(listEventsQueryLimitMax).default(listEventsQueryLimitDefault)
 })
 
 export const ListEventsResponseItem = zod.object({

@@ -3,6 +3,8 @@ import { getAuth } from "@clerk/express";
 import { db, clubEventsTable, eventRegistrationsTable, usersTable, collegesTable, collegeMembersTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
+import { getParam, getLimit } from "../lib/params";
+import { strictWriteLimit } from "../lib/rateLimit";
 
 const router = Router();
 
@@ -33,15 +35,16 @@ async function formatEvent(e: typeof clubEventsTable.$inferSelect) {
 // List events
 router.get("/", async (req: Request, res: Response) => {
   const { type, collegeId } = req.query;
-  let events = await db.select().from(clubEventsTable).where(eq(clubEventsTable.visibility, "public"));
+  const limit = getLimit(req);
+  let events = await db.select().from(clubEventsTable).where(eq(clubEventsTable.visibility, "public")).limit(limit * 2);
   if (type) events = events.filter(e => e.type === type);
   if (collegeId) events = events.filter(e => e.collegeId === parseInt(String(collegeId)));
-  const formatted = await Promise.all(events.map(formatEvent));
+  const formatted = await Promise.all(events.slice(0, limit).map(formatEvent));
   res.json(formatted);
 });
 
 // Create event
-router.post("/", requireAuth, async (req: Request, res: Response) => {
+router.post("/", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
   const { title, description, type, visibility, collegeId, startDate, endDate, registrationLink, maxParticipants } = req.body;
   if (!title || !type || !startDate || !visibility) {
@@ -73,7 +76,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 
 // Get event
 router.get("/:eventId", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.eventId);
+  const id = parseInt(getParam(req, "eventId"));
   const events = await db.select().from(clubEventsTable).where(eq(clubEventsTable.id, id)).limit(1);
   if (!events.length) {
     res.status(404).json({ error: "Event not found" });
@@ -83,9 +86,9 @@ router.get("/:eventId", async (req: Request, res: Response) => {
 });
 
 // Register for event
-router.post("/:eventId/register", requireAuth, async (req: Request, res: Response) => {
+router.post("/:eventId/register", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const id = parseInt(req.params.eventId);
+  const id = parseInt(getParam(req, "eventId"));
 
   const existing = await db.select().from(eventRegistrationsTable)
     .where(and(eq(eventRegistrationsTable.eventId, id), eq(eventRegistrationsTable.clerkId, userId!))).limit(1);
@@ -108,7 +111,7 @@ router.post("/:eventId/register", requireAuth, async (req: Request, res: Respons
 
 // Get registrations
 router.get("/:eventId/registrations", requireAuth, async (req: Request, res: Response) => {
-  const id = parseInt(req.params.eventId);
+  const id = parseInt(getParam(req, "eventId"));
   const regs = await db.select().from(eventRegistrationsTable).where(eq(eventRegistrationsTable.eventId, id));
   const enriched = await Promise.all(regs.map(async (r) => {
     const u = await getUserInfo(r.clerkId);

@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp } from "drizzle-orm/pg-core";
+import { index, pgTable, text, integer, timestamp, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { collegesTable } from "./colleges";
@@ -19,12 +19,16 @@ export const clubsTable = pgTable("clubs", {
 
 export const clubMembersTable = pgTable("club_members", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  clubId: integer("club_id").notNull().references(() => clubsTable.id),
+  clubId: integer("club_id").notNull().references(() => clubsTable.id, { onDelete: "cascade" }),
+  clerkId: text("clerk_id"),
   name: text("name").notNull(),
   role: text("role").notNull(),
   displayOrder: integer("display_order").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("club_members_club_idx").on(t.clubId),
+  index("club_members_clerk_idx").on(t.clerkId),
+]);
 
 export const clubManagementEventsTable = pgTable("club_management_events", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),

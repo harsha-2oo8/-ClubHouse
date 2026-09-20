@@ -54,7 +54,7 @@ function ProjectCard({ project }: { project: Record<string, unknown> }) {
               {String(project.status).replace("_", " ")}
             </Badge>
           </div>
-          {project.description && (
+          {Boolean(project.description) && (
             <p className="text-sm text-muted-foreground line-clamp-2 mb-3 flex-1">{String(project.description)}</p>
           )}
           {tech.length > 0 && (
@@ -69,7 +69,7 @@ function ProjectCard({ project }: { project: Record<string, unknown> }) {
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Users className="h-3.5 w-3.5" />
               <span>{Number(project.memberCount ?? 0)} members</span>
-              {project.collegeName && (
+              {Boolean(project.collegeName) && (
                 <span className="text-muted-foreground/60">· {String(project.collegeName)}</span>
               )}
             </div>
@@ -107,7 +107,7 @@ export default function Discover() {
   const qc = useQueryClient();
 
   const { data: profile } = useGetMyProfile({ query: { queryKey: getGetMyProfileQueryKey(), enabled: !!isSignedIn } });
-  const { data: projects, isLoading } = useListProjects({ query: { queryKey: getListProjectsQueryKey() } });
+  const { data: projects, isLoading } = useListProjects(undefined, { query: { queryKey: getListProjectsQueryKey() } });
   const createProject = useCreateProject();
 
   const form = useForm<CreateValues>({
@@ -115,7 +115,7 @@ export default function Discover() {
     defaultValues: { title: "", description: "", techStack: "", visibility: "public", openForApplications: false },
   });
 
-  const typedProjects = (projects as Array<Record<string, unknown>>) ?? [];
+  const typedProjects = (projects as unknown as Array<Record<string, unknown>>) ?? [];
   const typedProfile = profile as { role?: string } | null | undefined;
 
   const filtered = typedProjects.filter(p => {

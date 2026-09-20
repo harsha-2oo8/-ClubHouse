@@ -32,7 +32,7 @@ const createSchema = z.object({
   title: z.string().min(2, "Title required"),
   description: z.string().optional(),
   type: z.enum(["hackathon", "workshop", "seminar", "other"]),
-  visibility: z.enum(["public", "private"]),
+  visibility: z.enum(["public", "college_only"]),
   startDate: z.string().min(1, "Start date required"),
   endDate: z.string().optional(),
   registrationLink: z.string().url().optional().or(z.literal("")),
@@ -56,7 +56,7 @@ function EventCard({ event, onRegister }: { event: Record<string, unknown>; onRe
             {String(event.type)}
           </Badge>
         </div>
-        {event.description && (
+        {Boolean(event.description) && (
           <p className="text-sm text-muted-foreground line-clamp-2 mb-3 flex-1">{String(event.description)}</p>
         )}
         <div className="space-y-1.5 mb-4 text-xs text-muted-foreground">
@@ -67,13 +67,13 @@ function EventCard({ event, onRegister }: { event: Record<string, unknown>; onRe
               {end && ` – ${format(end, "MMM d, yyyy")}`}
             </span>
           </div>
-          {event.collegeName && (
+          {Boolean(event.collegeName) && (
             <div className="flex items-center gap-2">
               <Users className="h-3.5 w-3.5 flex-shrink-0" />
               <span>{String(event.collegeName)}</span>
             </div>
           )}
-          {event.maxParticipants && (
+          {Boolean(event.maxParticipants) && (
             <div className="flex items-center gap-2">
               <Users className="h-3.5 w-3.5 flex-shrink-0" />
               <span>{Number(event.registrantCount ?? 0)} / {Number(event.maxParticipants)} registered</span>
@@ -111,7 +111,7 @@ export default function DiscoverEvents() {
   const qc = useQueryClient();
 
   const { data: profile } = useGetMyProfile({ query: { queryKey: getGetMyProfileQueryKey(), enabled: !!isSignedIn } });
-  const { data: events, isLoading } = useListEvents({ query: { queryKey: getListEventsQueryKey() } });
+  const { data: events, isLoading } = useListEvents(undefined, { query: { queryKey: getListEventsQueryKey() } });
   const createEvent = useCreateEvent();
   const registerForEvent = useRegisterForEvent();
 
@@ -120,7 +120,7 @@ export default function DiscoverEvents() {
     defaultValues: { title: "", description: "", type: "other", visibility: "public", startDate: "", endDate: "", registrationLink: "" },
   });
 
-  const typedEvents = (events as Array<Record<string, unknown>>) ?? [];
+  const typedEvents = (events as unknown as Array<Record<string, unknown>>) ?? [];
   const typedProfile = profile as { role?: string } | null | undefined;
 
   const filtered = typedEvents.filter(e => typeFilter === "all" || e.type === typeFilter);
@@ -202,7 +202,7 @@ export default function DiscoverEvents() {
                             <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                             <SelectContent>
                               <SelectItem value="public">Public</SelectItem>
-                              <SelectItem value="private">Private</SelectItem>
+                              <SelectItem value="college_only">College only</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage /></FormItem>

@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, boolean } from "drizzle-orm/pg-core";
+import { index, pgTable, text, integer, timestamp, boolean, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { collegesTable } from "./colleges";
@@ -20,10 +20,13 @@ export const clubEventsTable = pgTable("club_events", {
 
 export const eventRegistrationsTable = pgTable("event_registrations", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  eventId: integer("event_id").notNull().references(() => clubEventsTable.id),
+  eventId: integer("event_id").notNull().references(() => clubEventsTable.id, { onDelete: "cascade" }),
   clerkId: text("clerk_id").notNull(),
   registeredAt: timestamp("registered_at").notNull().defaultNow(),
-});
+}, (t) => [
+  unique("event_registrations_event_clerk_unique").on(t.eventId, t.clerkId),
+  index("event_registrations_event_idx").on(t.eventId),
+]);
 
 export const insertClubEventSchema = createInsertSchema(clubEventsTable).omit({ createdAt: true });
 export type InsertClubEvent = z.infer<typeof insertClubEventSchema>;

@@ -48,7 +48,7 @@ export default function NotificationsPage() {
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
 
-  const typedNotifications = (notifications as Array<Record<string, unknown>>) ?? [];
+  const typedNotifications = (notifications as unknown as Array<Record<string, unknown>>) ?? [];
   const typedProfile = profile as { role?: string } | null | undefined;
   const groups = groupByDate(typedNotifications);
   const unreadCount = typedNotifications.filter(n => !n.read).length;
@@ -141,7 +141,7 @@ export default function NotificationsPage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        {n.linkUrl && (
+                        {Boolean(n.linkUrl) && (
                           <Link href={String(n.linkUrl)}>
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0" data-testid={`link-notification-${n.id}`}>
                               <ChevronRight className="h-4 w-4" />

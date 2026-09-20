@@ -10,6 +10,8 @@ import {
 } from "@workspace/db";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
+import { getParam } from "../lib/params";
+import { strictWriteLimit } from "../lib/rateLimit";
 
 const router = Router();
 
@@ -78,7 +80,7 @@ async function formatClub(club: typeof clubsTable.$inferSelect, includeDetails =
 
 async function getManagedClub(req: Request, res: Response) {
   const { userId } = getAuth(req);
-  const id = Number(req.params.clubId);
+  const id = Number(getParam(req, "clubId"));
   if (!Number.isInteger(id) || !userId || !(await canManageClub(id, userId))) {
     res.status(403).json({ error: "Club administrator access required" });
     return null;
@@ -98,7 +100,7 @@ router.get("/", async (_req: Request, res: Response) => {
   res.json(await Promise.all(clubs.map((club) => formatClub(club))));
 });
 
-router.post("/", requireAuth, async (req: Request, res: Response) => {
+router.post("/", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
   const college = await getPrimaryCollege();
   const { name, description, logoPath, brochurePath, brochureName } = req.body ?? {};
@@ -125,7 +127,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 });
 
 router.get("/:clubId", async (req: Request, res: Response) => {
-  const id = Number(req.params.clubId);
+  const id = Number(getParam(req, "clubId"));
   const club = await getClubOrNull(id);
   if (!club || club.status !== "published") {
     res.status(404).json({ error: "Club not found" });
@@ -134,7 +136,7 @@ router.get("/:clubId", async (req: Request, res: Response) => {
   res.json(await formatClub(club, true));
 });
 
-router.patch("/:clubId", requireAuth, async (req: Request, res: Response) => {
+router.patch("/:clubId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const id = await getManagedClub(req, res);
   if (!id) return;
   const { name, description, logoPath, brochurePath, brochureName } = req.body ?? {};
@@ -148,7 +150,7 @@ router.patch("/:clubId", requireAuth, async (req: Request, res: Response) => {
   res.json(await formatClub(club, true));
 });
 
-router.delete("/:clubId", requireAuth, async (req: Request, res: Response) => {
+router.delete("/:clubId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const id = await getManagedClub(req, res);
   if (!id) return;
   await db.delete(clubMembersTable).where(eq(clubMembersTable.clubId, id));
@@ -158,13 +160,13 @@ router.delete("/:clubId", requireAuth, async (req: Request, res: Response) => {
 });
 
 router.get("/:clubId/members", async (req: Request, res: Response) => {
-  const id = Number(req.params.clubId);
+  const id = Number(getParam(req, "clubId"));
   res.json(await db.select().from(clubMembersTable)
     .where(eq(clubMembersTable.clubId, id))
     .orderBy(asc(clubMembersTable.displayOrder), asc(clubMembersTable.id)));
 });
 
-router.post("/:clubId/members", requireAuth, async (req: Request, res: Response) => {
+router.post("/:clubId/members", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const id = await getManagedClub(req, res);
   if (!id) return;
   const { name, role, displayOrder } = req.body ?? {};
@@ -179,10 +181,10 @@ router.post("/:clubId/members", requireAuth, async (req: Request, res: Response)
   res.status(201).json(member);
 });
 
-router.patch("/:clubId/members/:memberId", requireAuth, async (req: Request, res: Response) => {
+router.patch("/:clubId/members/:memberId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const clubId = await getManagedClub(req, res);
   if (!clubId) return;
-  const memberId = Number(req.params.memberId);
+  const memberId = Number(getParam(req, "memberId"));
   const { name, role, displayOrder } = req.body ?? {};
   const [member] = await db.update(clubMembersTable).set({
     ...(typeof name === "string" ? { name: name.trim() } : {}),
@@ -196,11 +198,11 @@ router.patch("/:clubId/members/:memberId", requireAuth, async (req: Request, res
   res.json(member);
 });
 
-router.delete("/:clubId/members/:memberId", requireAuth, async (req: Request, res: Response) => {
+router.delete("/:clubId/members/:memberId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const clubId = await getManagedClub(req, res);
   if (!clubId) return;
   await db.delete(clubMembersTable).where(and(
-    eq(clubMembersTable.id, Number(req.params.memberId)),
+    eq(clubMembersTable.id, Number(getParam(req, "memberId"))),
     eq(clubMembersTable.clubId, clubId),
   ));
   res.status(204).end();
@@ -208,11 +210,11 @@ router.delete("/:clubId/members/:memberId", requireAuth, async (req: Request, re
 
 router.get("/:clubId/events", async (req: Request, res: Response) => {
   res.json(await db.select().from(clubManagementEventsTable)
-    .where(eq(clubManagementEventsTable.clubId, Number(req.params.clubId)))
+    .where(eq(clubManagementEventsTable.clubId, Number(getParam(req, "clubId"))))
     .orderBy(asc(clubManagementEventsTable.scheduledAt)));
 });
 
-router.post("/:clubId/events", requireAuth, async (req: Request, res: Response) => {
+router.post("/:clubId/events", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const clubId = await getManagedClub(req, res);
   if (!clubId) return;
   const { userId } = getAuth(req);
@@ -228,7 +230,7 @@ router.post("/:clubId/events", requireAuth, async (req: Request, res: Response) 
   res.status(201).json(event);
 });
 
-router.patch("/:clubId/events/:eventId", requireAuth, async (req: Request, res: Response) => {
+router.patch("/:clubId/events/:eventId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const clubId = await getManagedClub(req, res);
   if (!clubId) return;
   const { title, scheduledAt, description, bannerPath } = req.body ?? {};
@@ -239,7 +241,7 @@ router.patch("/:clubId/events/:eventId", requireAuth, async (req: Request, res: 
     ...(bannerPath !== undefined ? { bannerPath } : {}),
     updatedAt: new Date(),
   }).where(and(
-    eq(clubManagementEventsTable.id, Number(req.params.eventId)),
+    eq(clubManagementEventsTable.id, Number(getParam(req, "eventId"))),
     eq(clubManagementEventsTable.clubId, clubId),
   )).returning();
   if (!event) {
@@ -249,11 +251,11 @@ router.patch("/:clubId/events/:eventId", requireAuth, async (req: Request, res: 
   res.json(event);
 });
 
-router.delete("/:clubId/events/:eventId", requireAuth, async (req: Request, res: Response) => {
+router.delete("/:clubId/events/:eventId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const clubId = await getManagedClub(req, res);
   if (!clubId) return;
   await db.delete(clubManagementEventsTable).where(and(
-    eq(clubManagementEventsTable.id, Number(req.params.eventId)),
+    eq(clubManagementEventsTable.id, Number(getParam(req, "eventId"))),
     eq(clubManagementEventsTable.clubId, clubId),
   ));
   res.status(204).end();

@@ -3,6 +3,10 @@ import { getAuth } from "@clerk/express";
 import { db, collegesTable, usersTable, moderatorApplicationsTable, collegeMembersTable, projectsTable, clubEventsTable, notificationsTable } from "@workspace/db";
 import { eq, and, ilike, sql } from "drizzle-orm";
 import { requireAdmin } from "../middlewares/auth";
+import { getParam } from "../lib/params";
+import { notificationService } from "../lib/notify";
+import { recordAuditLog } from "../lib/audit";
+import { strictWriteLimit } from "../lib/rateLimit";
 
 const router = Router();
 
@@ -37,9 +41,11 @@ router.get("/college-registrations", requireAdmin, async (req: Request, res: Res
 });
 
 // Update college registration
-router.patch("/college-registrations/:collegeId", requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(req.params.collegeId);
+router.patch("/college-registrations/:collegeId", requireAdmin, strictWriteLimit(), async (req: Request, res: Response) => {
+  const id = parseInt(getParam(req, "collegeId"));
   const { status, reason } = req.body;
+
+  const before = await db.select().from(collegesTable).where(eq(collegesTable.id, id)).limit(1);
 
   const [updated] = await db.update(collegesTable)
     .set({ status, updatedAt: new Date() })
@@ -53,15 +59,21 @@ router.patch("/college-registrations/:collegeId", requireAdmin, async (req: Requ
 
   // Notify registrant
   if (updated.registeredBy) {
-    await db.insert(notificationsTable).values({
-      clerkId: updated.registeredBy,
-      type: status === "approved" ? "college_approved" : "college_rejected",
-      message: status === "approved"
-        ? `Your college "${updated.name}" has been approved and is now live!`
-        : `Your college registration "${updated.name}" was not approved.${reason ? ` Reason: ${reason}` : ""}`,
-      linkUrl: status === "approved" ? `/colleges/${id}` : null,
-      read: false,
-    });
+    if (status === "approved") {
+      await notificationService.send(
+        updated.registeredBy,
+        "college_approved",
+        `Your college "${updated.name}" has been approved and is now live!`,
+        `/colleges/${id}`,
+      );
+    } else {
+      await notificationService.send(
+        updated.registeredBy,
+        "college_rejected",
+        `Your college registration "${updated.name}" was not approved.${reason ? ` Reason: ${reason}` : ""}`,
+        null,
+      );
+    }
 
     // Add registrant as first member and moderator if approved
     if (status === "approved") {
@@ -74,6 +86,15 @@ router.patch("/college-registrations/:collegeId", requireAdmin, async (req: Requ
       }
     }
   }
+
+  await recordAuditLog(req, {
+    action: `college_registration_${status}`,
+    entityType: "college",
+    entityId: id,
+    before: before[0] ?? null,
+    after: updated,
+    metadata: { reason: reason ?? null },
+  });
 
   res.json(await formatCollege(updated));
 });
@@ -94,9 +115,11 @@ router.get("/moderator-applications", requireAdmin, async (req: Request, res: Re
 });
 
 // Update moderator application
-router.patch("/moderator-applications/:applicationId", requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(req.params.applicationId);
+router.patch("/moderator-applications/:applicationId", requireAdmin, strictWriteLimit(), async (req: Request, res: Response) => {
+  const id = parseInt(getParam(req, "applicationId"));
   const { status } = req.body;
+
+  const before = await db.select().from(moderatorApplicationsTable).where(eq(moderatorApplicationsTable.id, id)).limit(1);
 
   const [updated] = await db.update(moderatorApplicationsTable)
     .set({ status })
@@ -112,14 +135,21 @@ router.patch("/moderator-applications/:applicationId", requireAdmin, async (req:
     await db.update(collegeMembersTable)
       .set({ role: "moderator" })
       .where(and(eq(collegeMembersTable.collegeId, updated.collegeId), eq(collegeMembersTable.clerkId, updated.clerkId)));
-    await db.insert(notificationsTable).values({
-      clerkId: updated.clerkId,
-      type: "moderator_approved",
-      message: "Your moderator application has been approved!",
-      linkUrl: `/colleges/${updated.collegeId}`,
-      read: false,
-    });
+    await notificationService.send(
+      updated.clerkId,
+      "moderator_approved",
+      "Your moderator application has been approved!",
+      `/colleges/${updated.collegeId}`,
+    );
   }
+
+  await recordAuditLog(req, {
+    action: `moderator_application_${status}`,
+    entityType: "moderator_application",
+    entityId: id,
+    before: before[0] ?? null,
+    after: updated,
+  });
 
   const u = await getUserInfo(updated.clerkId);
   const college = await db.select().from(collegesTable).where(eq(collegesTable.id, updated.collegeId)).limit(1);

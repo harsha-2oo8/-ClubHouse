@@ -1,13 +1,13 @@
 import { Router, Request, Response } from "express";
-import { getAuth } from "@clerk/express";
+import { clerkClient, getAuth } from "@clerk/express";
 import { db, usersTable } from "@workspace/db";
 import { eq, ilike, or } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
-import { logger } from "../lib/logger";
+import { getParam, getLimit } from "../lib/params";
+import { shouldBootstrapAdmin } from "../lib/adminBootstrap";
+import { searchLimit, strictWriteLimit } from "../lib/rateLimit";
 
 const router = Router();
-
-const ADMIN_EMAIL = "harshavardhankalvir2808@gmail.com";
 
 function formatUser(u: typeof usersTable.$inferSelect) {
   return {
@@ -38,7 +38,7 @@ router.get("/me", requireAuth, async (req: Request, res: Response) => {
   res.json(formatUser(users[0]));
 });
 
-router.get("/search", requireAuth, async (req: Request, res: Response) => {
+router.get("/search", requireAuth, searchLimit(), async (req: Request, res: Response) => {
   const query = String(req.query.q ?? "").trim();
   if (query.length < 2) {
     res.json([]);
@@ -47,11 +47,11 @@ router.get("/search", requireAuth, async (req: Request, res: Response) => {
 
   const users = await db.select().from(usersTable)
     .where(or(ilike(usersTable.name, `%${query}%`), ilike(usersTable.email, `%${query}%`)))
-    .limit(8);
+    .limit(getLimit(req, 8, 50));
   res.json(users.map(formatUser));
 });
 
-router.patch("/me", requireAuth, async (req: Request, res: Response) => {
+router.patch("/me", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
   const { name, age, course, semester, college, pronouns, bio, avatarUrl, portfolioProjects, socials } = req.body;
 
@@ -77,10 +77,10 @@ router.patch("/me", requireAuth, async (req: Request, res: Response) => {
       res.status(400).json({ error: "name, age, course, semester, college, and pronouns are required" });
       return;
     }
-    const { default: clerkClient } = await import("@clerk/express");
     const clerkUser = await clerkClient.users.getUser(userId!);
     const email = clerkUser.emailAddresses[0]?.emailAddress ?? "";
-    const isAdmin = email === ADMIN_EMAIL;
+    // Env-based bootstrap: only grants admin at first profile creation, never on updates.
+    const isAdmin = shouldBootstrapAdmin({ email, clerkId: userId! });
 
     const [created] = await db.insert(usersTable).values({
       clerkId: userId!,
@@ -106,7 +106,7 @@ router.patch("/me", requireAuth, async (req: Request, res: Response) => {
 });
 
 router.get("/:userId", async (req: Request, res: Response) => {
-  const { userId } = req.params;
+  const userId = getParam(req, "userId");
   const users = await db.select().from(usersTable).where(eq(usersTable.clerkId, userId)).limit(1);
   if (!users.length) {
     res.status(404).json({ error: "User not found" });

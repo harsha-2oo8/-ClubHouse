@@ -55,7 +55,7 @@ export default function Dashboard() {
   }, [isSignedIn, setLocation]);
 
   useEffect(() => {
-    if (profile === null || (profile as Record<string, unknown>)?.error === "Profile not found. Please complete onboarding.") {
+    if (profile === null || (profile as unknown as Record<string, unknown>)?.error === "Profile not found. Please complete onboarding.") {
       setLocation("/onboarding");
     }
   }, [profile, setLocation]);
@@ -209,8 +209,8 @@ export default function Dashboard() {
                             {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
                           </p>
                         </div>
-                        {item.linkUrl && (
-                          <Link href={item.linkUrl}>
+                        {Boolean(item.linkUrl) && (
+                          <Link href={String(item.linkUrl)}>
                             <Button variant="ghost" size="sm" className="text-xs flex-shrink-0" data-testid={`link-activity-${item.id}`}>
                               View
                             </Button>

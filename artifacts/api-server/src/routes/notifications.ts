@@ -3,6 +3,7 @@ import { getAuth } from "@clerk/express";
 import { db, notificationsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
+import { getParam } from "../lib/params";
 
 const router = Router();
 
@@ -29,7 +30,7 @@ router.get("/unread-count", requireAuth, async (req: Request, res: Response) => 
 // Mark as read
 router.patch("/:notificationId/read", requireAuth, async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
-  const id = parseInt(req.params.notificationId);
+  const id = parseInt(getParam(req, "notificationId"));
   const [updated] = await db.update(notificationsTable)
     .set({ read: true })
     .where(and(eq(notificationsTable.id, id), eq(notificationsTable.clerkId, userId!)))

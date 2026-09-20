@@ -69,9 +69,9 @@ export default function CollegePage() {
   });
 
   const typedCollege = college as Record<string, unknown> | null | undefined;
-  const typedMembers = (members as Array<Record<string, unknown>>) ?? [];
-  const typedProjects = (projects as Array<Record<string, unknown>>) ?? [];
-  const typedMeetings = (meetings as Array<Record<string, unknown>>) ?? [];
+  const typedMembers = (members as unknown as Array<Record<string, unknown>>) ?? [];
+  const typedProjects = (projects as unknown as Array<Record<string, unknown>>) ?? [];
+  const typedMeetings = (meetings as unknown as Array<Record<string, unknown>>) ?? [];
   const typedProfile = profile as { role?: string; clerkId?: string } | null | undefined;
 
   const myMembership = typedMembers.find(m => m.clerkId === userId);
@@ -145,13 +145,13 @@ export default function CollegePage() {
               <h1 className="text-2xl font-bold text-foreground" data-testid="text-college-name">{String(typedCollege.name)}</h1>
               <Badge variant="secondary">{String(typedCollege.location)}</Badge>
             </div>
-            {typedCollege.description && (
+            {Boolean(typedCollege.description) && (
               <p className="text-muted-foreground text-sm mb-3">{String(typedCollege.description)}</p>
             )}
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5"><Users className="h-4 w-4" /> {Number(typedCollege.memberCount ?? 0)} members</span>
               <span className="flex items-center gap-1.5"><Folder className="h-4 w-4" /> {Number(typedCollege.projectCount ?? 0)} projects</span>
-              {typedCollege.website && (
+              {Boolean(typedCollege.website) && (
                 <a href={String(typedCollege.website)} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Website</a>
               )}
             </div>
@@ -225,7 +225,7 @@ export default function CollegePage() {
                     ? <p>{String(typedCollege.description)}</p>
                     : <p>No description yet.</p>}
                   <p><span className="font-medium text-foreground">Location:</span> {String(typedCollege.location)}</p>
-                  {typedCollege.website && (
+                  {Boolean(typedCollege.website) && (
                     <p><span className="font-medium text-foreground">Website:</span>{" "}
                       <a href={String(typedCollege.website)} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
                         {String(typedCollege.website)}
@@ -268,7 +268,7 @@ export default function CollegePage() {
                       </Avatar>
                       <div className="min-w-0 flex-1">
                         <p className="font-medium text-sm truncate" data-testid={`text-member-name-${m.clerkId}`}>{String(m.name)}</p>
-                        <p className="text-xs text-muted-foreground truncate">{String(m.course)}, Sem {m.semester}</p>
+                        <p className="text-xs text-muted-foreground truncate">{String(m.course)}, Sem {String(m.semester)}</p>
                       </div>
                       <Badge className={cn("text-xs border capitalize flex-shrink-0", roleColors[String(m.role)] ?? "bg-muted")} data-testid={`badge-role-${m.clerkId}`}>
                         {String(m.role)}
@@ -288,7 +288,7 @@ export default function CollegePage() {
                   <Card className="hover:shadow-md hover:border-primary/30 transition-all cursor-pointer h-full" data-testid={`card-project-${p.id}`}>
                     <CardContent className="p-5">
                       <h3 className="font-semibold mb-1.5">{String(p.title)}</h3>
-                      {p.description && <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{String(p.description)}</p>}
+                      {Boolean(p.description) && <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{String(p.description)}</p>}
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Badge variant="secondary" className="text-xs">{String(p.status)}</Badge>
                         <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {Number(p.memberCount ?? 0)}</span>
@@ -316,13 +316,13 @@ export default function CollegePage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-foreground">{String(m.title)}</p>
-                      {m.description && <p className="text-sm text-muted-foreground line-clamp-1">{String(m.description)}</p>}
+                      {Boolean(m.description) && <p className="text-sm text-muted-foreground line-clamp-1">{String(m.description)}</p>}
                       <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                         <Clock className="h-3 w-3" /> {format(new Date(String(m.scheduledAt)), "MMM d, yyyy 'at' h:mm a")}
-                        {m.createdByName && <span className="ml-2">by {String(m.createdByName)}</span>}
+                        {Boolean(m.createdByName) && <span className="ml-2">by {String(m.createdByName)}</span>}
                       </p>
                     </div>
-                    {m.meetLink && (
+                    {Boolean(m.meetLink) && (
                       <a href={String(m.meetLink)} target="_blank" rel="noopener noreferrer">
                         <Button size="sm" variant="outline" className="gap-1.5" data-testid={`button-join-meeting-${m.id}`}>
                           <Video className="h-4 w-4" /> Join

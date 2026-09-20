@@ -55,7 +55,7 @@ export default function AdminPage() {
   }, [typedProfile, profileLoading, setLocation]);
 
   const { data: stats } = useAdminGetStats({ query: { queryKey: getAdminGetStatsQueryKey(), enabled: typedProfile?.role === "admin" } });
-  const { data: colleges, isLoading: collegesLoading } = useAdminGetCollegeRegistrations({
+  const { data: colleges, isLoading: collegesLoading } = useAdminGetCollegeRegistrations(undefined, {
     query: { queryKey: getAdminGetCollegeRegistrationsQueryKey(), enabled: typedProfile?.role === "admin" }
   });
   const { data: modApps, isLoading: modAppsLoading } = useAdminGetModeratorApplications({
@@ -66,8 +66,8 @@ export default function AdminPage() {
   const updateMod = useAdminUpdateModeratorApplication();
 
   const typedStats = stats as Record<string, number> | null | undefined;
-  const typedColleges = (colleges as Array<Record<string, unknown>>) ?? [];
-  const typedModApps = (modApps as Array<Record<string, unknown>>) ?? [];
+  const typedColleges = (colleges as unknown as Array<Record<string, unknown>>) ?? [];
+  const typedModApps = (modApps as unknown as Array<Record<string, unknown>>) ?? [];
 
   async function handleCollegeAction(collegeId: number, status: "approved" | "rejected") {
     try {
@@ -157,7 +157,7 @@ export default function AdminPage() {
                           <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">Pending</Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">{String(c.location)}</p>
-                        {c.description && <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{String(c.description)}</p>}
+                        {Boolean(c.description) && <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{String(c.description)}</p>}
                         <p className="text-xs text-muted-foreground mt-1">
                           Submitted {formatDistanceToNow(new Date(String(c.createdAt)), { addSuffix: true })}
                         </p>
@@ -209,7 +209,7 @@ export default function AdminPage() {
                           <Badge variant="secondary" className="text-xs">wants to moderate</Badge>
                           <span className="text-sm text-muted-foreground">{String(app.collegeName)}</span>
                         </div>
-                        {app.motivation && <p className="text-sm text-muted-foreground line-clamp-2">{String(app.motivation)}</p>}
+                        {Boolean(app.motivation) && <p className="text-sm text-muted-foreground line-clamp-2">{String(app.motivation)}</p>}
                         <p className="text-xs text-muted-foreground mt-1">
                           Applied {formatDistanceToNow(new Date(String(app.createdAt)), { addSuffix: true })}
                         </p>
