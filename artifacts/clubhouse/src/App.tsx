@@ -1,16 +1,16 @@
 import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
-import { AnimatePresence, MotionConfig, motion } from "framer-motion";
+import { MotionConfig, motion } from "framer-motion";
 import { pageEnter } from "@/lib/motion";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ClerkProvider, SignIn, SignUp, useAuth } from "@clerk/react";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { setUploadAuthTokenGetter } from "@workspace/object-storage-web";
 import { publishableKeyFromHost } from "@clerk/react/internal";
-import { ThemeProvider } from "next-themes";
+import { ThemeProvider, useTheme } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { clerkAppearance } from "@/lib/clerk-appearance";
+import { clerkAppearanceFor } from "@/lib/clerk-appearance";
 import { appConfig } from "@/lib/config";
 
 import Landing from "@/pages/landing";
@@ -31,7 +31,15 @@ import NotFound from "@/pages/not-found";
 import { ClubAdmin, ClubDirectory, ClubProfile, ClubRegister } from "@/pages/clubs";
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
+  defaultOptions: {
+    queries: {
+      // Transient blips (cold starts, token refresh races) must not strand
+      // pages in error states that only a manual refresh fixes.
+      retry: 2,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
+      staleTime: 30_000,
+    },
+  },
 });
 
 const clerkPubKey = publishableKeyFromHost(
@@ -72,6 +80,7 @@ function ClerkTokenBridge() {
 
 function AppRouter() {
   const [location, setLocation] = useLocation();
+  const { resolvedTheme } = useTheme();
   return (
     <ClerkProvider
       publishableKey={clerkPubKey}
@@ -94,12 +103,16 @@ function AppRouter() {
       }}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to))}
-      appearance={clerkAppearance}
+      appearance={clerkAppearanceFor(resolvedTheme)}
     >
       <ClerkTokenBridge />
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div key={location} variants={pageEnter} initial="initial" animate="animate" exit="exit">
-          <Switch location={location}>
+      {/*
+        Enter-only page transitions. A previous exit-gated variant could leave
+        the next page unmounted when animation frames pause (background tabs
+        on mobile), forcing a manual refresh — never gate mounting on exit.
+      */}
+      <motion.div key={location} variants={pageEnter} initial="initial" animate="animate">
+        <Switch location={location}>
         <Route path="/" component={Landing} />
         <Route path="/sign-in/*?" component={SignInPage} />
         <Route path="/sign-up/*?" component={SignUpPage} />
@@ -122,9 +135,8 @@ function AppRouter() {
         <Route path="/notifications" component={NotificationsPage} />
         <Route path="/admin" component={AdminPage} />
         <Route component={NotFound} />
-          </Switch>
-        </motion.div>
-      </AnimatePresence>
+        </Switch>
+      </motion.div>
     </ClerkProvider>
   );
 }

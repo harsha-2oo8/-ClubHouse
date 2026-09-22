@@ -2,7 +2,7 @@ import { shadcn } from "@clerk/themes";
 
 const basePath = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
-export const clerkAppearance = {
+const base = {
   baseTheme: shadcn,
   cssLayerName: "clerk",
   layout: {
@@ -11,16 +11,12 @@ export const clerkAppearance = {
   },
   variables: {
     colorPrimary: "hsl(245, 80%, 58%)",
-    colorBackground: "hsl(0, 0%, 100%)",
-    colorText: "hsl(240, 10%, 8%)",
-    colorInputBackground: "hsl(0, 0%, 100%)",
-    colorInputText: "hsl(240, 10%, 8%)",
     borderRadius: "0.625rem",
     fontFamily: "Inter, system-ui, -apple-system, sans-serif",
   },
   elements: {
-    card: "bg-white shadow-lg border border-border w-[440px] max-w-full",
-    cardBox: "bg-white shadow-xl rounded-xl border border-border",
+    card: "shadow-lg border border-border w-[440px] max-w-full",
+    cardBox: "shadow-xl rounded-xl border border-border",
     formButtonPrimary: "bg-primary text-primary-foreground hover:opacity-90",
     footerActionLink: "text-primary hover:text-primary/80",
     socialButtonsIconButton: "border border-border hover:bg-muted",
@@ -28,3 +24,37 @@ export const clerkAppearance = {
     identityPreviewEditButton: "text-primary",
   },
 };
+
+export const clerkAppearance = {
+  ...base,
+  variables: {
+    ...base.variables,
+    colorBackground: "hsl(0, 0%, 100%)",
+    colorText: "hsl(240, 10%, 8%)",
+    colorInputBackground: "hsl(0, 0%, 100%)",
+    colorInputText: "hsl(240, 10%, 8%)",
+  },
+};
+
+export const clerkAppearanceDark = {
+  ...base,
+  variables: {
+    ...base.variables,
+    colorBackground: "hsl(240, 14%, 10%)",
+    colorText: "hsl(0, 0%, 95%)",
+    colorInputBackground: "hsl(240, 12%, 16%)",
+    colorInputText: "hsl(0, 0%, 95%)",
+    colorTextSecondary: "hsl(240, 6%, 70%)",
+    colorNeutral: "hsl(0, 0%, 95%)",
+  },
+  elements: {
+    ...base.elements,
+    card: "shadow-lg border border-border bg-[#16161f] w-[440px] max-w-full",
+    cardBox: "shadow-xl rounded-xl border border-border bg-[#16161f]",
+  },
+};
+
+/** Theme-aware Clerk appearance — dark mode gets a real dark card, not a forced-white one. */
+export function clerkAppearanceFor(mode: string | undefined) {
+  return mode === "dark" ? clerkAppearanceDark : clerkAppearance;
+}
