@@ -1,5 +1,6 @@
 @layer theme, base, clerk, components, utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -59,6 +60,7 @@
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 
   --font-sans: var(--app-font-sans);
+  --font-display: var(--app-font-display);
   --font-serif: var(--app-font-serif);
   --font-mono: var(--app-font-mono);
 
@@ -135,6 +137,7 @@
   --chart-5: 38 92% 50%;
 
   --app-font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --app-font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: 'JetBrains Mono', Menlo, monospace;
   --radius: 0.625rem;
@@ -309,5 +312,164 @@
   .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
   .border.active-elevate-2:not(.no-active-interaction-elevate)::after {
     inset: -1px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CLUBHOUSE VIBRANT SYSTEM — accents, gradients, motifs, motion safety
+   Primary stays Electric Violet/Indigo; accents add energy in controlled
+   doses. All accent hues defined per color scheme.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  --ch-violet: 262 84% 60%;
+  --ch-cyan: 190 95% 42%;
+  --ch-lime: 84 81% 38%;
+  --ch-coral: 8 90% 58%;
+  --ch-amber: 36 96% 48%;
+  --ch-pink: 330 82% 58%;
+  --ch-ink: 240 12% 10%;
+  --ch-paper: 40 20% 99%;
+  --ch-glow-alpha: 0.35;
+}
+
+.dark {
+  --ch-violet: 262 90% 70%;
+  --ch-cyan: 190 95% 58%;
+  --ch-lime: 84 85% 60%;
+  --ch-coral: 8 92% 66%;
+  --ch-amber: 36 98% 60%;
+  --ch-pink: 330 88% 68%;
+  --ch-ink: 240 8% 96%;
+  --ch-paper: 240 14% 7%;
+  --ch-glow-alpha: 0.5;
+}
+
+@layer utilities {
+  /* Accent text + surfaces */
+  .text-ch-violet { color: hsl(var(--ch-violet)); }
+  .text-ch-cyan { color: hsl(var(--ch-cyan)); }
+  .text-ch-lime { color: hsl(var(--ch-lime)); }
+  .text-ch-coral { color: hsl(var(--ch-coral)); }
+  .text-ch-amber { color: hsl(var(--ch-amber)); }
+  .text-ch-pink { color: hsl(var(--ch-pink)); }
+  .bg-ch-violet { background-color: hsl(var(--ch-violet)); }
+  .bg-ch-cyan { background-color: hsl(var(--ch-cyan)); }
+  .bg-ch-lime { background-color: hsl(var(--ch-lime)); }
+  .bg-ch-coral { background-color: hsl(var(--ch-coral)); }
+  .bg-ch-amber { background-color: hsl(var(--ch-amber)); }
+  .bg-ch-pink { background-color: hsl(var(--ch-pink)); }
+
+  /* Gradient text accents (hero moments only) */
+  .text-gradient-violet-cyan {
+    background: linear-gradient(100deg, hsl(var(--ch-violet)), hsl(var(--ch-cyan)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .text-gradient-pink-violet {
+    background: linear-gradient(100deg, hsl(var(--ch-pink)), hsl(var(--ch-violet)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .text-gradient-amber-coral {
+    background: linear-gradient(100deg, hsl(var(--ch-amber)), hsl(var(--ch-coral)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Gradient surfaces (identity moments: hero glow, featured cards) */
+  .bg-gradient-violet-cyan {
+    background: linear-gradient(135deg, hsl(var(--ch-violet)), hsl(var(--ch-cyan)));
+  }
+  .bg-gradient-pink-violet {
+    background: linear-gradient(135deg, hsl(var(--ch-pink)), hsl(var(--ch-violet)));
+  }
+
+  /* Soft glow ring for featured/hover states */
+  .glow-violet { box-shadow: 0 0 0 1px hsl(var(--ch-violet) / 0.4), 0 8px 32px -8px hsl(var(--ch-violet) / var(--ch-glow-alpha)); }
+  .glow-cyan { box-shadow: 0 0 0 1px hsl(var(--ch-cyan) / 0.4), 0 8px 32px -8px hsl(var(--ch-cyan) / var(--ch-glow-alpha)); }
+
+  /* Motifs: dot grid + soft grid (section backdrops, never behind body text) */
+  .motif-dots {
+    background-image: radial-gradient(hsl(var(--foreground) / 0.10) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+  .motif-grid {
+    background-image:
+      linear-gradient(hsl(var(--foreground) / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--foreground) / 0.05) 1px, transparent 1px);
+    background-size: 36px 36px;
+  }
+  .mask-fade-b {
+    -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+  }
+
+  /* Ambient drift for decorative blobs (GPU: transform/opacity only) */
+  @keyframes ch-drift-a {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(4%, -6%) scale(1.08); }
+  }
+  @keyframes ch-drift-b {
+    0%, 100% { transform: translate(0, 0) scale(1.05); }
+    50% { transform: translate(-5%, 4%) scale(0.96); }
+  }
+  .animate-drift-a { animation: ch-drift-a 14s ease-in-out infinite; }
+  .animate-drift-b { animation: ch-drift-b 18s ease-in-out infinite; }
+
+  /* Live pulse dot (real activity only) */
+  @keyframes ch-ping-soft {
+    0% { transform: scale(1); opacity: 0.9; }
+    80%, 100% { transform: scale(2.4); opacity: 0; }
+  }
+  .live-dot { position: relative; }
+  .live-dot::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background: currentColor;
+    animation: ch-ping-soft 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  /* Notification badge pop */
+  @keyframes ch-pop {
+    0% { transform: scale(0.4); }
+    60% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+  }
+  .animate-pop { animation: ch-pop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+  /* Success check draw */
+  @keyframes ch-draw-check {
+    to { stroke-dashoffset: 0; }
+  }
+  .animate-draw-check {
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+    animation: ch-draw-check 0.5s ease-out 0.1s forwards;
+  }
+
+  /* Slim scrollbars + brand selection + focus */
+  .scroll-slim { scrollbar-width: thin; scrollbar-color: hsl(var(--border)) transparent; }
+  .scroll-slim::-webkit-scrollbar { height: 6px; width: 6px; }
+  .scroll-slim::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 9999px; }
+  ::selection { background: hsl(var(--ch-violet) / 0.25); }
+  :focus-visible { outline: 2px solid hsl(var(--ch-cyan)); outline-offset: 2px; }
+
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+}
+
+/* Reduced motion: kill decorative motion, keep state changes legible. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-drift-a, .animate-drift-b, .live-dot::after, .animate-pop {
+    animation: none !important;
+  }
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
   }
 }

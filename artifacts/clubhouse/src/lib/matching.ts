@@ -18,6 +18,7 @@ export interface MatchableProject {
   collegeName?: unknown;
   openForApplications?: unknown;
   ownerId?: unknown;
+  status?: unknown;
 }
 
 export interface MatchableProfile {

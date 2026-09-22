@@ -17,6 +17,7 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "
 import { Textarea } from "@/components/ui/textarea";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { DiscoverTabs } from "@/components/social/discover-tabs";
 
 const registerSchema = z.object({
   name: z.string().min(2, "College name required"),
@@ -100,7 +101,8 @@ export default function DiscoverColleges() {
   return (
     <AppLayout userRole={typedProfile?.role}>
       <div className="p-6 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+        <DiscoverTabs />
+        <div className="flex items-center justify-between mb-6 mt-5">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Colleges</h1>
             <p className="text-muted-foreground text-sm mt-0.5">Find and join your college's club community</p>

@@ -10,6 +10,7 @@ import {
 } from "@workspace/api-client-react";
 import { DeleteConfirm } from "@/components/delete-confirm";
 import { ReportDialog } from "@/components/report-dialog";
+import { DiscoverTabs } from "@/components/social/discover-tabs";
 import type { Club, ClubMember, ClubManagementEvent } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
 import { AppLayout } from "@/components/layout";
@@ -84,7 +85,8 @@ export function ClubDirectory() {
   return (
     <AppLayout>
       <div className="mx-auto max-w-6xl p-6">
-        <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <DiscoverTabs />
+        <div className="mb-8 mt-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <p className="mb-2 text-sm font-medium uppercase tracking-wider text-primary">ClubHouse community</p>
             <h1 className="text-3xl font-bold tracking-tight">Find your club</h1>

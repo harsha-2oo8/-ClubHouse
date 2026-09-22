@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@clerk/react";
 import { Calendar, Users, ExternalLink, Plus, Filter, Pencil, Trash2, Flag } from "lucide-react";
 import { useListEvents, getListEventsQueryKey, useGetMyProfile, getGetMyProfileQueryKey, useCreateEvent, useRegisterForEvent, useUpdateEvent, useDeleteEvent } from "@workspace/api-client-react";
 import { DeleteConfirm } from "@/components/delete-confirm";
 import { ReportDialog } from "@/components/report-dialog";
+import { DiscoverTabs } from "@/components/social/discover-tabs";
 import { AppLayout } from "@/components/layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -138,6 +139,16 @@ export default function DiscoverEvents() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
+  // Deep link: /discover/events?create=1 opens the composer (global Create menu).
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("create") === "1") {
+      setEditingEvent(null);
+      form.reset();
+      setCreateOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const { data: profile } = useGetMyProfile({ query: { queryKey: getGetMyProfileQueryKey(), enabled: !!isSignedIn } });
   const { data: events, isLoading } = useListEvents(undefined, { query: { queryKey: getListEventsQueryKey() } });
   const createEvent = useCreateEvent();
@@ -237,7 +248,8 @@ export default function DiscoverEvents() {
   return (
     <AppLayout userRole={typedProfile?.role}>
       <div className="p-6 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+        <DiscoverTabs />
+        <div className="flex items-center justify-between mb-6 mt-5">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Events</h1>
             <p className="text-muted-foreground text-sm mt-0.5">Hackathons, workshops, seminars and more</p>

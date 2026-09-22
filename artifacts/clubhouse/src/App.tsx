@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
+import { pageEnter } from "@/lib/motion";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ClerkProvider, SignIn, SignUp, useAuth } from "@clerk/react";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
@@ -69,7 +71,7 @@ function ClerkTokenBridge() {
 }
 
 function AppRouter() {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   return (
     <ClerkProvider
       publishableKey={clerkPubKey}
@@ -95,7 +97,9 @@ function AppRouter() {
       appearance={clerkAppearance}
     >
       <ClerkTokenBridge />
-      <Switch>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div key={location} variants={pageEnter} initial="initial" animate="animate" exit="exit">
+          <Switch location={location}>
         <Route path="/" component={Landing} />
         <Route path="/sign-in/*?" component={SignInPage} />
         <Route path="/sign-up/*?" component={SignUpPage} />
@@ -118,7 +122,9 @@ function AppRouter() {
         <Route path="/notifications" component={NotificationsPage} />
         <Route path="/admin" component={AdminPage} />
         <Route component={NotFound} />
-      </Switch>
+          </Switch>
+        </motion.div>
+      </AnimatePresence>
     </ClerkProvider>
   );
 }
@@ -141,16 +147,18 @@ function SignUpPage() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="light" disableTransitionOnChange>
-        <TooltipProvider>
-          <WouterRouter base={basePath}>
-            <AppRouter />
-          </WouterRouter>
-          <Toaster />
-        </TooltipProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <MotionConfig reducedMotion="user">
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider attribute="class" defaultTheme="light" disableTransitionOnChange>
+          <TooltipProvider>
+            <WouterRouter base={basePath}>
+              <AppRouter />
+            </WouterRouter>
+            <Toaster />
+          </TooltipProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </MotionConfig>
   );
 }
 

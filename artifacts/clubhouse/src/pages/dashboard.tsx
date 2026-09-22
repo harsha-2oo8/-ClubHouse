@@ -1,39 +1,30 @@
 import { useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { useAuth, useUser } from "@clerk/react";
-import { LayoutDashboard, TrendingUp, Users, Calendar, Bell, ArrowRight, Folder, Sparkles, Check } from "lucide-react";
+import { motion } from "framer-motion";
+import { Bell, CalendarDays, Check, FolderKanban, Sparkles, TrendingUp, Users } from "lucide-react";
 import {
   useGetMyProfile, getGetMyProfileQueryKey,
   useGetDashboardStats, getGetDashboardStatsQueryKey,
   useGetDashboardActivity, getGetDashboardActivityQueryKey,
   useListProjects, getListProjectsQueryKey,
+  useListEvents, getListEventsQueryKey,
 } from "@workspace/api-client-react";
+import { AppLayout } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SectionHeading } from "@/components/social/section-heading";
+import { Reveal, Stagger } from "@/components/reveal";
 import { recommendProjects } from "@/lib/matching";
 import type { MatchableProject } from "@/lib/matching";
-import { AppLayout } from "@/components/layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 
-function StatCard({ label, value, icon: Icon, href, color }: { label: string; value: number | string; icon: React.ElementType; href?: string; color: string }) {
-  const content = (
-    <Card className="hover:shadow-md transition-shadow" data-testid={`card-stat-${label.toLowerCase().replace(/\s+/g, "-")}`}>
-      <CardContent className="p-5">
-        <div className="flex items-center gap-4">
-          <div className={`w-10 h-10 rounded-lg ${color} flex items-center justify-center flex-shrink-0`}>
-            <Icon className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-foreground">{value}</div>
-            <div className="text-sm text-muted-foreground">{label}</div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-  return href ? <Link href={href}>{content}</Link> : content;
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
 }
 
 export default function Dashboard() {
@@ -44,13 +35,17 @@ export default function Dashboard() {
   const { data: profile, isLoading: profileLoading } = useGetMyProfile({
     query: { queryKey: getGetMyProfileQueryKey() }
   });
-
   const { data: stats, isLoading: statsLoading } = useGetDashboardStats({
     query: { queryKey: getGetDashboardStatsQueryKey() }
   });
-
   const { data: activity, isLoading: activityLoading } = useGetDashboardActivity({
     query: { queryKey: getGetDashboardActivityQueryKey() }
+  });
+  const { data: projects } = useListProjects(undefined, {
+    query: { queryKey: getListProjectsQueryKey(), enabled: !!isSignedIn },
+  });
+  const { data: events } = useListEvents(undefined, {
+    query: { queryKey: getListEventsQueryKey(), enabled: !!isSignedIn },
   });
 
   useEffect(() => {
@@ -71,205 +66,199 @@ export default function Dashboard() {
   } | null | undefined;
   const typedActivity = activity as Array<{ id: number; type: string; message: string; linkUrl?: string; createdAt: string }> | null | undefined;
 
-  const { data: projects } = useListProjects(undefined, {
-    query: { queryKey: getListProjectsQueryKey(), enabled: !!isSignedIn },
-  });
+  const allProjects = ((projects as unknown as MatchableProject[]) ?? []);
+  const myProjects = allProjects.filter((p) => p.ownerId === userId);
+  const upcomingEvents = ((events as unknown as Array<Record<string, unknown>>) ?? [])
+    .filter((e) => new Date(String(e.startDate)).getTime() > Date.now() - 86400000)
+    .sort((a, b) => new Date(String(a.startDate)).getTime() - new Date(String(b.startDate)).getTime())
+    .slice(0, 3);
   const matches = recommendProjects(
-    ((projects as unknown as MatchableProject[]) ?? []),
-    {
-      bio: typedProfile?.bio,
-      course: typedProfile?.course,
-      college: typedProfile?.college,
-    },
+    allProjects,
+    { bio: typedProfile?.bio, course: typedProfile?.course, college: typedProfile?.college },
     userId ?? null,
   );
 
+  const firstName = typedProfile?.name?.split(" ")[0] ?? user?.firstName ?? "there";
+
   return (
     <AppLayout userRole={typedProfile?.role}>
-      <div className="p-6 max-w-6xl mx-auto">
+      <div className="mx-auto max-w-6xl">
         {/* Greeting */}
-        <div className="mb-8">
+        <div className="mb-7">
           {profileLoading ? (
-            <Skeleton className="h-9 w-64 mb-2" />
+            <Skeleton className="h-10 w-72" />
           ) : (
-            <h1 className="text-3xl font-bold text-foreground" data-testid="text-dashboard-greeting">
-              Welcome back, {typedProfile?.name?.split(" ")[0] ?? user?.firstName ?? "there"}
-            </h1>
+            <motion.h1
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl"
+              data-testid="text-dashboard-greeting"
+            >
+              {greeting()}, {firstName}
+            </motion.h1>
           )}
-          {typedStats?.myCollegeName ? (
-            <p className="text-muted-foreground mt-1">
-              Member of{" "}
-              <Link href={`/colleges/${typedStats.myCollegeId}`} className="text-primary hover:underline font-medium">
-                {typedStats.myCollegeName}
-              </Link>
-            </p>
-          ) : (
-            <p className="text-muted-foreground mt-1">
-              Not in a college yet?{" "}
-              <Link href="/discover/colleges" className="text-primary hover:underline">
-                Find your college
-              </Link>
-            </p>
-          )}
+          <p className="mt-1 text-sm text-muted-foreground">
+            {typedStats?.myCollegeName ? (
+              <>Here&apos;s what&apos;s happening around <Link href={`/colleges/${typedStats.myCollegeId}`} className="font-medium text-primary hover:underline">{typedStats.myCollegeName}</Link></>
+            ) : (
+              <>Not in a college yet? <Link href="/discover/colleges" className="font-medium text-primary hover:underline">Find your college</Link></>
+            )}
+          </p>
         </div>
 
-        {/* Stats grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {statsLoading ? (
-            Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)
-          ) : (
-            <>
-              <StatCard
-                label="My Projects"
-                value={typedStats?.myProjectsCount ?? 0}
-                icon={Folder}
-                href="/discover"
-                color="bg-primary/10 text-primary"
-              />
-              <StatCard
-                label="Open Projects"
-                value={typedStats?.openProjectsCount ?? 0}
-                icon={TrendingUp}
-                href="/discover"
-                color="bg-green-500/10 text-green-600"
-              />
-              <StatCard
-                label="Upcoming Events"
-                value={typedStats?.upcomingEvents ?? 0}
-                icon={Calendar}
-                href="/discover/events"
-                color="bg-blue-500/10 text-blue-600"
-              />
-              <StatCard
-                label="Notifications"
-                value={typedStats?.unreadNotifications ?? 0}
-                icon={Bell}
-                href="/notifications"
-                color="bg-orange-500/10 text-orange-600"
-              />
-            </>
-          )}
-        </div>
+        {/* Pulse strip — real numbers only */}
+        <Stagger className="mb-8 flex gap-3 overflow-x-auto no-scrollbar pb-1">
+          {[
+            { label: "My projects", value: typedStats?.myProjectsCount ?? 0, href: "/my", icon: FolderKanban, cls: "text-ch-violet" },
+            { label: "Open projects", value: typedStats?.openProjectsCount ?? 0, href: "/discover", icon: TrendingUp, cls: "text-ch-lime" },
+            { label: "Upcoming events", value: typedStats?.upcomingEvents ?? 0, href: "/discover/events", icon: CalendarDays, cls: "text-ch-cyan" },
+            { label: "Unread", value: typedStats?.unreadNotifications ?? 0, href: "/notifications", icon: Bell, cls: "text-ch-coral" },
+          ].map((s) => (
+            <Reveal asStaggerItem key={s.label}>
+              <Link href={s.href}>
+                <div className="flex min-w-[10.5rem] items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5" data-testid={`card-stat-${s.label.toLowerCase().replace(/\s+/g, "-")}`}>
+                  <s.icon className={`h-5 w-5 ${s.cls}`} />
+                  <div>
+                    <p className="font-display text-xl font-bold leading-none text-foreground">
+                      {statsLoading ? "–" : s.value}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">{s.label}</p>
+                  </div>
+                </div>
+              </Link>
+            </Reveal>
+          ))}
+        </Stagger>
 
-        {/* Quick actions + Activity */}
-        <div className="grid lg:grid-cols-3 gap-6 mb-6">
-          {/* Quick actions */}
-          <div className="lg:col-span-1">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Quick Actions</CardTitle>
+        {/* YOUR WORLD */}
+        <Reveal>
+          <SectionHeading kicker="Your world" title="Happening around you" />
+        </Reveal>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Reveal>
+            <Card className="h-full">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Upcoming</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
-                {[
-                  { label: "Browse open projects", href: "/discover", icon: TrendingUp },
-                  { label: "Find colleges", href: "/discover/colleges", icon: Users },
-                  { label: "Upcoming events", href: "/discover/events", icon: Calendar },
-                  { label: "My profile", href: "/profile/me", icon: LayoutDashboard },
-                ].map((action) => (
-                  <Link key={action.href} href={action.href}>
-                    <div
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors cursor-pointer"
-                      data-testid={`action-${action.label.toLowerCase().replace(/\s+/g, "-")}`}
-                    >
-                      <action.icon className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">{action.label}</span>
-                      <ArrowRight className="h-3 w-3 text-muted-foreground ml-auto" />
+              <CardContent className="space-y-1">
+                {upcomingEvents.length === 0 && (
+                  <p className="py-4 text-center text-sm text-muted-foreground">Nothing scheduled — check events.</p>
+                )}
+                {upcomingEvents.map((e) => (
+                  <div key={String(e.id)} className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-muted/60">
+                    <div className="flex w-11 flex-shrink-0 flex-col items-center rounded-lg bg-muted py-1">
+                      <span className="font-display text-base font-bold leading-none">{new Date(String(e.startDate)).getDate()}</span>
+                      <span className="text-[10px] font-bold uppercase text-muted-foreground">
+                        {new Date(String(e.startDate)).toLocaleString(undefined, { month: "short" })}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">{String(e.title)}</p>
+                      <p className="text-xs capitalize text-muted-foreground">{String(e.type)}</p>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </Reveal>
+          <Reveal>
+            <Card className="h-full">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">My active projects</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1">
+                {myProjects.length === 0 && (
+                  <p className="py-4 text-center text-sm text-muted-foreground">
+                    No projects yet. <Link href="/discover?create=1" className="font-medium text-primary hover:underline">Start one</Link>
+                  </p>
+                )}
+                {myProjects.slice(0, 4).map((p) => (
+                  <Link key={String(p.id)} href={`/projects/${p.id}`}>
+                    <div className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-muted/60">
+                      <span className="h-9 w-1.5 flex-shrink-0 rounded-full bg-gradient-violet-cyan" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">{String(p.title)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {Array.isArray(p.requiredRoles) && p.requiredRoles.length > 0
+                            ? `${p.requiredRoles.length} open role${p.requiredRoles.length > 1 ? "s" : ""}`
+                            : String(p.status ?? "").replace("_", " ")}
+                        </p>
+                      </div>
+                      <Users className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                     </div>
                   </Link>
                 ))}
               </CardContent>
             </Card>
-          </div>
-
-          {/* Activity feed */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                <CardTitle className="text-base">Recent Activity</CardTitle>
-                <Link href="/notifications">
-                  <Button variant="ghost" size="sm" className="text-xs" data-testid="link-all-notifications">
-                    View all
-                  </Button>
-                </Link>
-              </CardHeader>
-              <CardContent>
-                {activityLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="flex gap-3 mb-4">
-                      <Skeleton className="h-8 w-8 rounded-full flex-shrink-0" />
-                      <div className="flex-1">
-                        <Skeleton className="h-4 w-full mb-1" />
-                        <Skeleton className="h-3 w-24" />
-                      </div>
-                    </div>
-                  ))
-                ) : !typedActivity?.length ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Bell className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                    <p className="text-sm">No activity yet. Start exploring!</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {typedActivity.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
-                        data-testid={`activity-${item.id}`}
-                      >
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <Bell className="h-4 w-4 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-foreground">{item.message}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
-                          </p>
-                        </div>
-                        {Boolean(item.linkUrl) && (
-                          <Link href={String(item.linkUrl)}>
-                            <Button variant="ghost" size="sm" className="text-xs flex-shrink-0" data-testid={`link-activity-${item.id}`}>
-                              View
-                            </Button>
-                          </Link>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          </Reveal>
         </div>
 
-        {/* Recommended for you — transparent matching, reasons shown */}
+        {/* YOU MIGHT LIKE */}
         {matches.length > 0 && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" /> Recommended for you
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="mt-8">
+            <Reveal>
+              <SectionHeading kicker="You might like" kickerClass="text-ch-pink" title="Matched to you" actionLabel="All projects" actionHref="/discover" />
+            </Reveal>
+            <Stagger className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {matches.map((m) => (
-                <div key={String(m.project.id)} className="rounded-lg border p-4" data-testid={`match-${m.project.id}`}>
-                  <p className="font-semibold text-sm">{String(m.project.title)}</p>
-                  <ul className="mt-2 space-y-1">
-                    {m.reasons.map((r) => (
-                      <li key={r} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                        <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0 mt-px" /> {r}
-                      </li>
-                    ))}
-                  </ul>
+                <Reveal asStaggerItem key={String(m.project.id)}>
                   <Link href={`/projects/${m.project.id}`}>
-                    <Button variant="outline" size="sm" className="w-full mt-3" data-testid={`button-match-view-${m.project.id}`}>
-                      View project
-                    </Button>
+                    <div className="h-full cursor-pointer rounded-2xl border border-border bg-card p-4 transition-shadow hover:glow-violet" data-testid={`match-${m.project.id}`}>
+                      <p className="font-display text-sm font-bold">{String(m.project.title)}</p>
+                      <ul className="mt-2 space-y-1">
+                        {m.reasons.slice(0, 2).map((r) => (
+                          <li key={r} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                            <Check className="mt-px h-3.5 w-3.5 flex-shrink-0 text-green-600" /> {r}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </Link>
-                </div>
+                </Reveal>
               ))}
+            </Stagger>
+          </div>
+        )}
+
+        {/* ACTIVITY */}
+        <div className="mt-8">
+          <Reveal>
+            <SectionHeading kicker="Activity" title="Latest updates" actionLabel="View all" actionHref="/notifications" />
+          </Reveal>
+          <Card>
+            <CardContent className="pt-4">
+              {activityLoading ? (
+                <Skeleton className="h-24 rounded-xl" />
+              ) : !typedActivity?.length ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">Quiet for now — activity lands here.</p>
+              ) : (
+                <div className="space-y-1">
+                  {typedActivity.slice(0, 5).map((item) => (
+                    <div key={item.id} className="flex items-start gap-3 rounded-xl p-2.5 transition-colors hover:bg-muted/60" data-testid={`activity-${item.id}`}>
+                      <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
+                        <Bell className="h-4 w-4 text-primary" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm">{item.message}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
+                        </p>
+                      </div>
+                      {Boolean(item.linkUrl) && (
+                        <Link href={String(item.linkUrl)}>
+                          <Button variant="ghost" size="sm" className="flex-shrink-0 text-xs" data-testid={`link-activity-${item.id}`}>
+                            View
+                          </Button>
+                        </Link>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
-        )}
+        </div>
       </div>
     </AppLayout>
   );

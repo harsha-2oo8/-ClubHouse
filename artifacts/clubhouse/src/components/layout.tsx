@@ -1,213 +1,224 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useAuth, useUser } from "@clerk/react";
+import { motion } from "framer-motion";
+import { useAuth } from "@clerk/react";
 import { useTheme } from "next-themes";
 import {
-  LayoutDashboard, Compass, GraduationCap, Calendar, Bell, UsersRound,
-  User, Shield, Menu, X, Sun, Moon, ChevronDown, LayoutGrid,
+  Bell,
+  Compass,
+  FolderKanban,
+  GraduationCap,
+  CalendarDays,
+  House,
+  LayoutGrid,
+  Moon,
+  Sun,
+  UserRound,
+  Zap,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useGetUnreadNotificationCount, getGetUnreadNotificationCountQueryKey } from "@workspace/api-client-react";
 import { AccountMenu } from "@/components/account-menu";
+import { CreateMenu } from "@/components/create-menu";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
-interface NavItem {
-  href: string;
-  label: string;
-  icon: React.ElementType;
-  adminOnly?: boolean;
+const links = [
+  { href: "/discover", label: "Discover", icon: Compass },
+  { href: "/discover", label: "Projects", icon: FolderKanban, match: (p: string) => p === "/discover" || p.startsWith("/projects") },
+  { href: "/discover/events", label: "Events", icon: CalendarDays },
+  { href: "/clubs", label: "Clubs", icon: LayoutGrid },
+  { href: "/discover/colleges", label: "Colleges", icon: GraduationCap },
+];
+
+function useUnread(): number {
+  const { isSignedIn } = useAuth();
+  const { data } = useGetUnreadNotificationCount({
+    query: { queryKey: getGetUnreadNotificationCountQueryKey(), enabled: Boolean(isSignedIn) },
+  });
+  return (data as { count?: number })?.count ?? 0;
 }
 
-const navItems: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/discover", label: "Discover", icon: Compass },
-  { href: "/discover/colleges", label: "Colleges", icon: GraduationCap },
-  { href: "/discover/events", label: "Events", icon: Calendar },
-  { href: "/clubs", label: "Clubs", icon: UsersRound },
-  { href: "/notifications", label: "Notifications", icon: Bell },
-  { href: "/my", label: "My Space", icon: LayoutGrid },
-  { href: "/profile/me", label: "My Profile", icon: User },
-  { href: "/admin", label: "Admin", icon: Shield, adminOnly: true },
-];
-function NavLink({ item, active, onClick }: { item: NavItem; active: boolean; onClick?: () => void }) {
-  const { isSignedIn } = useAuth();
-  const { data: count } = useGetUnreadNotificationCount({
-    query: { queryKey: getGetUnreadNotificationCountQueryKey(), enabled: Boolean(isSignedIn) && item.href === "/notifications" }
-  });
-  const unreadCount = item.href === "/notifications" ? (count as { count?: number })?.count ?? 0 : 0;
-
+function Logo({ compact = false }: { compact?: boolean }) {
   return (
-    <Link
-      href={item.href}
-      onClick={onClick}
-      data-testid={`nav-${item.label.toLowerCase().replace(/\s+/, "-")}`}
-      className={cn(
-        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
-        active
-          ? "bg-primary text-primary-foreground shadow-sm"
-          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-      )}
-    >
-      <item.icon className="h-4 w-4 flex-shrink-0" />
-      <span>{item.label}</span>
-      {unreadCount > 0 && (
-        <Badge variant="destructive" className="ml-auto h-5 px-1.5 text-xs min-w-[1.25rem] flex items-center justify-center">
-          {unreadCount > 99 ? "99+" : unreadCount}
-        </Badge>
-      )}
+    <Link href="/">
+      <span className="flex cursor-pointer items-center gap-2">
+        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-violet-cyan text-white shadow-md">
+          <Zap className="h-4 w-4" strokeWidth={2.5} />
+        </span>
+        {!compact && (
+          <span className="font-display text-lg font-bold tracking-tight text-foreground">
+            Club<span className="text-gradient-violet-cyan">House</span>
+          </span>
+        )}
+      </span>
     </Link>
   );
 }
 
-function MobileUnreadDot() {
-  const { isSignedIn } = useAuth();
-  const { data: count } = useGetUnreadNotificationCount({
-    query: { queryKey: getGetUnreadNotificationCountQueryKey(), enabled: Boolean(isSignedIn) }
-  });
-  const unread = (count as { count?: number })?.count ?? 0;
-  if (unread <= 0) return null;
-  return <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />;
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme();
+  return (
+    <button
+      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      aria-label="Toggle theme"
+      data-testid="button-theme-toggle"
+      className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+    >
+      {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+    </button>
+  );
+}
+
+function BellButton({ dot = false }: { dot?: boolean }) {
+  const unread = useUnread();
+  return (
+    <Link href="/notifications">
+      <span
+        data-testid="nav-notifications"
+        className="relative flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        <Bell className="h-4 w-4" />
+        {unread > 0 && (
+          <span
+            key={unread}
+            className={cn(
+              "animate-pop absolute flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white",
+              dot ? "-right-0.5 -top-0.5 bg-ch-coral" : "-right-1 -top-1 bg-ch-coral",
+            )}
+          >
+            {unread > 99 ? "99+" : unread}
+          </span>
+        )}
+      </span>
+    </Link>
+  );
 }
 
 export function AppLayout({ children, userRole }: { children: React.ReactNode; userRole?: string }) {
   const [location] = useLocation();
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const { theme, setTheme } = useTheme();
-  const { user } = useUser();
+  const isMobile = useIsMobile();
+  const [scrolled, setScrolled] = useState(false);
 
-  const visibleItems = navItems.filter(item => !item.adminOnly || userRole === "admin");
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const isActive = (href: string, match?: (p: string) => boolean) =>
+    match ? match(location) : location === href || (href !== "/" && location.startsWith(href));
 
   return (
-    <div className="flex min-h-screen bg-background">
-      {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col w-64 bg-sidebar border-r border-sidebar-border fixed inset-y-0 z-30">
-        <div className="flex items-center gap-3 px-4 py-4 border-b border-sidebar-border">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground text-xs font-bold">CH</span>
-          </div>
-          <span className="font-bold text-sidebar-foreground text-lg tracking-tight">ClubHouse</span>
-        </div>
-        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          {visibleItems.map(item => (
-            <NavLink
-              key={item.href}
-              item={item}
-              active={location === item.href || (item.href !== "/" && location.startsWith(item.href) && item.href.length > 1)}
-            />
-          ))}
-        </nav>
-        <div className="p-3 border-t border-sidebar-border flex items-center gap-2">
-           <AccountMenu userRole={userRole} />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.fullName ?? "User"}</p>
-          </div>
-          <button
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground"
-            data-testid="button-theme-toggle"
-          >
-            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
-        </div>
-      </aside>
-
-      {/* Mobile header */}
-      <header className="md:hidden fixed top-0 inset-x-0 z-40 bg-sidebar border-b border-sidebar-border flex items-center px-4 py-3 gap-3">
-        <div className="flex items-center gap-2 flex-1">
-          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground text-xs font-bold">CH</span>
-          </div>
-          <span className="font-bold text-sidebar-foreground">ClubHouse</span>
-        </div>
-        <button
-          onClick={() => setMobileOpen(true)}
-          data-testid="button-mobile-menu"
-          className="p-2 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground"
+    <div className="min-h-screen bg-background">
+      {/* ── Desktop floating pill nav ─────────────────────────────── */}
+      <header className="fixed inset-x-0 top-0 z-40 hidden justify-center px-4 pt-4 md:flex">
+        <motion.nav
+          initial={{ y: -32, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          data-testid="nav-desktop"
+          className={cn(
+            "flex w-full max-w-5xl items-center gap-1 rounded-2xl border bg-background/75 px-3 shadow-lg shadow-black/5 backdrop-blur-xl transition-all",
+            scrolled ? "py-1.5" : "py-2.5",
+          )}
         >
-          <Menu className="h-5 w-5" />
-        </button>
+          <Logo />
+          <div className="mx-2 h-6 w-px bg-border" />
+          <div className="flex flex-1 items-center gap-0.5">
+            {links.map((l) => {
+              const active = isActive(l.href, l.match);
+              return (
+                <Link key={l.label} href={l.href}>
+                  <span
+                    data-testid={`nav-${l.label.toLowerCase()}`}
+                    className={cn(
+                      "relative flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-colors",
+                      active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {active && (
+                      <motion.span
+                        layoutId="nav-active-pill"
+                        className="absolute inset-0 rounded-full bg-primary/10"
+                        transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                      />
+                    )}
+                    <l.icon className={cn("relative h-4 w-4", active && "text-primary")} />
+                    <span className="relative">{l.label}</span>
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <BellButton />
+            <CreateMenu />
+            <AccountMenu userRole={userRole} />
+          </div>
+        </motion.nav>
       </header>
 
-      {/* Mobile drawer */}
-      {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-          <aside className="relative w-72 bg-sidebar flex flex-col h-full">
-            <div className="flex items-center gap-3 px-4 py-4 border-b border-sidebar-border">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground text-xs font-bold">CH</span>
-              </div>
-              <span className="font-bold text-sidebar-foreground text-lg">ClubHouse</span>
-              <button
-                className="ml-auto p-1 rounded-lg hover:bg-sidebar-accent"
-                onClick={() => setMobileOpen(false)}
-                data-testid="button-close-menu"
-              >
-                <X className="h-5 w-5 text-sidebar-foreground" />
-              </button>
-            </div>
-            <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-              {visibleItems.map(item => (
-                <NavLink
-                  key={item.href}
-                  item={item}
-                  active={location === item.href}
-                  onClick={() => setMobileOpen(false)}
-                />
-              ))}
-            </nav>
-            <div className="p-3 border-t border-sidebar-border flex items-center gap-3">
-               <AccountMenu userRole={userRole} />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.fullName ?? "User"}</p>
-              </div>
-              <button
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground"
-              >
-                {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              </button>
-            </div>
-          </aside>
+      {/* ── Mobile top bar ────────────────────────────────────────── */}
+      <header className="fixed inset-x-0 top-0 z-40 flex items-center justify-between bg-background/80 px-4 py-3 backdrop-blur-xl md:hidden">
+        <Logo />
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <BellButton dot />
+          <AccountMenu userRole={userRole} />
         </div>
-      )}
+      </header>
 
-      {/* Mobile bottom navigation */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-sidebar border-t border-sidebar-border flex justify-around px-2 py-1.5" data-testid="nav-mobile-bottom">
-        {[
-          { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-          { href: "/discover", label: "Discover", icon: Compass },
-          { href: "/notifications", label: "Alerts", icon: Bell },
-          { href: "/my", label: "My Space", icon: LayoutGrid },
-          { href: "/profile/me", label: "Profile", icon: User },
-        ].map(item => {
-          const active = location === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              data-testid={`nav-mobile-${item.label.toLowerCase().replace(/\s+/, "-")}`}
-              className={cn(
-                "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-[11px] font-medium min-w-[3.5rem] min-h-[3rem] justify-center",
-                active ? "text-primary" : "text-sidebar-foreground/70",
-              )}
-            >
-              <span className="relative">
-                <item.icon className="h-5 w-5" />
-                {item.href === "/notifications" && <MobileUnreadDot />}
+      {/* ── Mobile bottom tab bar with springing Create ───────────── */}
+      <nav
+        data-testid="nav-mobile-bottom"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/85 backdrop-blur-xl md:hidden"
+      >
+        <div className="relative mx-auto flex max-w-md items-stretch justify-around px-2 pb-[max(0.6rem,env(safe-area-inset-bottom))] pt-1.5">
+          {[
+            { href: "/dashboard", label: "Home", icon: House },
+            { href: "/discover", label: "Discover", icon: Compass },
+          ].map((l) => (
+            <Link key={l.href} href={l.href}>
+              <span
+                data-testid={`nav-mobile-${l.label.toLowerCase()}`}
+                className={cn(
+                  "flex min-h-[3.25rem] min-w-[4rem] flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] font-medium",
+                  isActive(l.href) ? "text-primary" : "text-muted-foreground",
+                )}
+              >
+                <l.icon className="h-5 w-5" />
+                {l.label}
               </span>
-              {item.label}
             </Link>
-          );
-        })}
+          ))}
+          <span className="-mt-7">
+            <CreateMenu variant="fab" />
+          </span>
+          {[
+            { href: "/notifications", label: "Activity", icon: Bell },
+            { href: "/profile/me", label: "Profile", icon: UserRound },
+          ].map((l) => (
+            <Link key={l.href} href={l.href}>
+              <span
+                data-testid={`nav-mobile-${l.label.toLowerCase()}`}
+                className={cn(
+                  "relative flex min-h-[3.25rem] min-w-[4rem] flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] font-medium",
+                  isActive(l.href) ? "text-primary" : "text-muted-foreground",
+                )}
+              >
+                <l.icon className="h-5 w-5" />
+                {l.label}
+              </span>
+            </Link>
+          ))}
+        </div>
       </nav>
 
-      {/* Main content */}
-      <main className="flex-1 md:pl-64 pt-[3.5rem] pb-20 md:pb-0 md:pt-0">
-        <div className="min-h-screen">
-          {children}
-        </div>
+      {/* ── Content ───────────────────────────────────────────────── */}
+      <main className="mx-auto w-full px-4 pb-32 pt-20 md:max-w-6xl md:px-6 md:pb-16 md:pt-28">
+        {children}
       </main>
     </div>
   );

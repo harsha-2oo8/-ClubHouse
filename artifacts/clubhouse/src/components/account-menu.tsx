@@ -8,6 +8,7 @@ import {
   Check,
   CircleHelp,
   Flag,
+  FolderKanban,
   Lock,
   LogOut,
   Moon,
@@ -147,6 +148,9 @@ export function AccountMenu({ userRole }: AccountMenuProps) {
       <button className={menuButton} onClick={() => go("/notifications")} data-testid="account-notifications">
         <Bell className="h-4 w-4 text-muted-foreground" /> Notifications
       </button>
+      <button className={menuButton} onClick={() => go("/my")} data-testid="account-my-space">
+        <FolderKanban className="h-4 w-4 text-muted-foreground" /> My Projects &amp; Clubs
+      </button>
       <button className={menuButton} onClick={() => go("/settings#privacy")} data-testid="account-privacy">
         <Lock className="h-4 w-4 text-muted-foreground" /> Privacy
       </button>
@@ -240,6 +244,9 @@ export function AccountMenu({ userRole }: AccountMenuProps) {
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => go("/notifications")} data-testid="account-notifications">
               <Bell className="h-4 w-4 text-muted-foreground" /> Notifications
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => go("/my")} data-testid="account-my-space">
+              <FolderKanban className="h-4 w-4 text-muted-foreground" /> My Projects &amp; Clubs
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => go("/settings#privacy")} data-testid="account-privacy">
               <Lock className="h-4 w-4 text-muted-foreground" /> Privacy
