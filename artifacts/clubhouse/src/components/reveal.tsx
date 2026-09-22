@@ -17,10 +17,24 @@ interface RevealProps {
  */
 export function Reveal({ children, delay = 0, className, asStaggerItem = false }: RevealProps) {
   const reduce = useReducedMotion();
-  const variants: Variants = asStaggerItem ? staggerItem : fadeUp;
   if (reduce) {
     return <div className={className}>{children}</div>;
   }
+  if (asStaggerItem) {
+    // Grid children animate on mount via the parent <Stagger> propagation.
+    // (Deliberately not whileInView: below-fold grid items must never risk
+    // staying invisible if observation never fires.)
+    return (
+      <motion.div
+        className={className}
+        variants={staggerItem}
+        transition={{ delay }}
+      >
+        {children}
+      </motion.div>
+    );
+  }
+  const variants: Variants = fadeUp;
   return (
     <motion.div
       className={className}

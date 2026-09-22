@@ -158,7 +158,7 @@ export default function CollegePage() {
           </div>
           <div className="flex gap-2 flex-shrink-0">
             {typedProfile?.role === "admin" && (
-              <Link href={`/colleges/${collegeId}/admin`}>
+              <Link href="/admin">
                 <Button variant="outline" size="sm" className="gap-2" data-testid="link-college-admin">
                   <Settings className="h-4 w-4" /> Admin
                 </Button>

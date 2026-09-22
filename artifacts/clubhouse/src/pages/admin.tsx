@@ -165,20 +165,20 @@ export default function AdminPage() {
         </div>
 
         <Tabs defaultValue="colleges">
-          <TabsList className="mb-6 flex-wrap">
-            <TabsTrigger value="colleges" data-testid="tab-colleges">
+          <TabsList className="mb-6 grid w-full grid-cols-2 sm:inline-flex sm:w-auto">
+            <TabsTrigger value="colleges" data-testid="tab-colleges" className="text-xs sm:text-sm">
               College Registrations
               {typedStats?.pendingColleges ? <Badge className="ml-2 h-5 px-1.5 text-xs">{typedStats.pendingColleges}</Badge> : null}
             </TabsTrigger>
-            <TabsTrigger value="moderators" data-testid="tab-moderators">
+            <TabsTrigger value="moderators" data-testid="tab-moderators" className="text-xs sm:text-sm">
               Moderator Applications
               {typedStats?.pendingModerators ? <Badge className="ml-2 h-5 px-1.5 text-xs">{typedStats.pendingModerators}</Badge> : null}
             </TabsTrigger>
-            <TabsTrigger value="reports" data-testid="tab-reports">
+            <TabsTrigger value="reports" data-testid="tab-reports" className="text-xs sm:text-sm">
               Reports
               {typedStats?.pendingReports ? <Badge className="ml-2 h-5 px-1.5 text-xs">{typedStats.pendingReports}</Badge> : null}
             </TabsTrigger>
-            <TabsTrigger value="audit" data-testid="tab-audit">
+            <TabsTrigger value="audit" data-testid="tab-audit" className="text-xs sm:text-sm">
               Audit Log
             </TabsTrigger>
           </TabsList>
