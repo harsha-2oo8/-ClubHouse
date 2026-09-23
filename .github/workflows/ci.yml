@@ -25,7 +25,7 @@ jobs:
         run: pnpm run typecheck:libs
 
       - name: Typecheck packages
-        run: pnpm -r --filter "./artifacts/**" --filter "./scripts" --if-present run typecheck
+        run: pnpm -r --filter "./artifacts/**" --filter "./scripts" --filter "./tests/**" --if-present run typecheck
 
       - name: Run tests
         run: pnpm -r --if-present run test

@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useListClubs, useGetClub, getGetClubQueryKey, getListClubsQueryKey,
   useCreateClub, useUpdateClub, useCreateClubMember, useDeleteClubMember,
-  useCreateClubEvent, useDeleteClubEvent, useDeleteClub,
+  useCreateClubEvent, useUpdateClubEvent, useDeleteClubEvent, useDeleteClub,
   useGetMyProfile, getGetMyProfileQueryKey,
 } from "@workspace/api-client-react";
 import { DeleteConfirm } from "@/components/delete-confirm";
@@ -22,7 +22,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { appConfig } from "@/lib/config";
-import { ArrowLeft, CalendarDays, ExternalLink, FileText, Flag, ImagePlus, Plus, Settings, Trash2, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, ExternalLink, FileText, Flag, ImagePlus, Pencil, Plus, Settings, Trash2, Users } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 function assetUrl(path?: string | null) {
   if (!path) return null;
@@ -213,6 +214,7 @@ export function ClubAdmin() {
   const addMember = useCreateClubMember();
   const deleteMember = useDeleteClubMember();
   const addEvent = useCreateClubEvent();
+  const editEvent = useUpdateClubEvent();
   const deleteEvent = useDeleteClubEvent();
   const removeClub = useDeleteClub();
   const [name, setName] = useState("");
@@ -228,6 +230,9 @@ export function ClubAdmin() {
   const [eventBanner, setEventBanner] = useState<string | null>(null);
   const [deleteClubOpen, setDeleteClubOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<ClubManagementEvent | null>(null);
+  const [eventToEdit, setEventToEdit] = useState<ClubManagementEvent | null>(null);
+  const [editEventTitle, setEditEventTitle] = useState("");
+  const [editEventDate, setEditEventDate] = useState("");
 
   if (isLoading || profileLoading) return <AppLayout><div className="mx-auto max-w-5xl p-6"><Skeleton className="h-96 rounded-xl" /></div></AppLayout>;
   if (!club) return <AppLayout><div className="p-6 text-center">Club not found.</div></AppLayout>;
@@ -240,6 +245,31 @@ export function ClubAdmin() {
   const saveEvent = async (event: React.FormEvent) => { event.preventDefault(); try { await addEvent.mutateAsync({ clubId: id, data: { title: eventTitle, scheduledAt: new Date(eventDate).toISOString(), description: eventDescription || null, bannerPath: eventBanner } }); setEventTitle(""); setEventDate(""); setEventDescription(""); setEventBanner(null); refresh(); } catch { toast({ title: "Could not create event", variant: "destructive" }); } };
   const handleDeleteClub = async () => { try { await removeClub.mutateAsync({ clubId: id }); toast({ title: "Club deleted" }); setDeleteClubOpen(false); navigate("/clubs"); } catch { toast({ title: "Could not delete club", variant: "destructive" }); } };
   const handleDeleteEvent = async () => { if (!eventToDelete) return; try { await deleteEvent.mutateAsync({ clubId: id, eventId: eventToDelete.id }); refresh(); toast({ title: "Event deleted" }); setEventToDelete(null); } catch { toast({ title: "Could not delete event", variant: "destructive" }); } };
+  const startEditEvent = (event: ClubManagementEvent) => {
+    setEventToEdit(event);
+    setEditEventTitle(event.title);
+    const d = new Date(event.scheduledAt);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    setEditEventDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+  };
+  const handleEditEvent = async () => {
+    if (!eventToEdit || editEventTitle.trim().length < 2 || !editEventDate) {
+      toast({ title: "Title and date are required", variant: "destructive" });
+      return;
+    }
+    try {
+      await editEvent.mutateAsync({
+        clubId: id,
+        eventId: eventToEdit.id,
+        data: { title: editEventTitle.trim(), scheduledAt: new Date(editEventDate).toISOString() },
+      });
+      refresh();
+      toast({ title: "Event updated" });
+      setEventToEdit(null);
+    } catch {
+      toast({ title: "Could not update event", variant: "destructive" });
+    }
+  };
   return (
     <AppLayout>
       <div className="mx-auto max-w-5xl p-6">
@@ -247,7 +277,7 @@ export function ClubAdmin() {
         <div className="grid gap-6 lg:grid-cols-2">
           <Card><CardHeader><CardTitle>Club profile</CardTitle></CardHeader><CardContent className="space-y-4"><Input placeholder={club.name} value={name} onChange={(e) => setName(e.target.value)} /><Textarea placeholder={club.description} value={description} onChange={(e) => setDescription(e.target.value)} rows={5} /><div className="flex flex-wrap gap-2"><UploadButton accept="image/png,image/jpeg,image/webp" label={logoPath || club.logoPath ? "Replace logo" : "Upload logo"} onUploaded={(path) => setLogoPath(path)} /><UploadButton accept=".pdf,image/png,image/jpeg" label={brochureName || club.brochureName || "Upload brochure"} onUploaded={(path, fileName) => { setBrochurePath(path); setBrochureName(fileName); }} /></div><Button onClick={saveProfile} disabled={updateClub.isPending}>Save profile</Button></CardContent></Card>
           <Card><CardHeader><CardTitle>Team members</CardTitle></CardHeader><CardContent><form onSubmit={saveMember} className="mb-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><Input placeholder="Name" value={memberName} onChange={(e) => setMemberName(e.target.value)} required /><Input placeholder="Role" value={memberRole} onChange={(e) => setMemberRole(e.target.value)} required /><Button type="submit" size="icon" aria-label="Add team member"><Plus className="h-4 w-4" /></Button></form><div className="space-y-2">{(club.members ?? []).map((member: ClubMember) => <div key={member.id} className="flex items-center justify-between rounded-lg border p-3"><div><p className="font-medium">{member.name}</p><p className="text-sm text-muted-foreground">{member.role}</p></div><Button variant="ghost" size="icon" onClick={async () => { await deleteMember.mutateAsync({ clubId: id, memberId: member.id }); refresh(); }} aria-label={`Remove ${member.name}`}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>)}</div></CardContent></Card>
-          <Card className="lg:col-span-2"><CardHeader><CardTitle>Events</CardTitle></CardHeader><CardContent><form onSubmit={saveEvent} className="grid gap-3 md:grid-cols-2"><Input placeholder="Event title" value={eventTitle} onChange={(e) => setEventTitle(e.target.value)} required /><Input type="datetime-local" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required /><Textarea className="md:col-span-2" placeholder="Event description (optional)" value={eventDescription} onChange={(e) => setEventDescription(e.target.value)} /><div className="flex items-center gap-3"><UploadButton accept="image/png,image/jpeg,image/webp" label={eventBanner ? "Banner uploaded" : "Upload event banner"} onUploaded={(path) => setEventBanner(path)} /><Button type="submit" disabled={addEvent.isPending} className="gap-2"><Plus className="h-4 w-4" /> Create event</Button></div></form><div className="mt-6 grid gap-3 md:grid-cols-2">{(club.events ?? []).map((event: ClubManagementEvent) => <div key={event.id} className="rounded-lg border p-4"><div className="flex justify-between gap-3"><div><p className="font-semibold">{event.title}</p><p className="text-sm text-muted-foreground">{new Date(event.scheduledAt).toLocaleString()}</p></div><Button variant="ghost" size="icon" onClick={() => setEventToDelete(event)} aria-label={`Delete ${event.title}`}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>{event.description && <p className="mt-2 text-sm">{event.description}</p>}</div>)}</div></CardContent></Card>
+          <Card className="lg:col-span-2"><CardHeader><CardTitle>Events</CardTitle></CardHeader><CardContent><form onSubmit={saveEvent} className="grid gap-3 md:grid-cols-2"><Input placeholder="Event title" value={eventTitle} onChange={(e) => setEventTitle(e.target.value)} required /><Input type="datetime-local" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required /><Textarea className="md:col-span-2" placeholder="Event description (optional)" value={eventDescription} onChange={(e) => setEventDescription(e.target.value)} /><div className="flex items-center gap-3"><UploadButton accept="image/png,image/jpeg,image/webp" label={eventBanner ? "Banner uploaded" : "Upload event banner"} onUploaded={(path) => setEventBanner(path)} /><Button type="submit" disabled={addEvent.isPending} className="gap-2"><Plus className="h-4 w-4" /> Create event</Button></div></form><div className="mt-6 grid gap-3 md:grid-cols-2">{(club.events ?? []).map((event: ClubManagementEvent) => <div key={event.id} className="rounded-lg border p-4"><div className="flex justify-between gap-3"><div><p className="font-semibold">{event.title}</p><p className="text-sm text-muted-foreground">{new Date(event.scheduledAt).toLocaleString()}</p></div><div className="flex gap-1 flex-shrink-0"><Button variant="ghost" size="icon" onClick={() => startEditEvent(event)} aria-label={`Edit ${event.title}`} data-testid={`button-edit-club-event-${event.id}`}><Pencil className="h-4 w-4" /></Button><Button variant="ghost" size="icon" onClick={() => setEventToDelete(event)} aria-label={`Delete ${event.title}`} data-testid={`button-delete-club-event-${event.id}`}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></div>{event.description && <p className="mt-2 text-sm">{event.description}</p>}</div>)}</div></CardContent></Card>
           <Card className="lg:col-span-2 border-destructive/40"><CardHeader><CardTitle className="text-destructive">Danger zone</CardTitle></CardHeader><CardContent className="flex flex-col sm:flex-row sm:items-center gap-3"><p className="text-sm text-muted-foreground flex-1">Permanently remove this club, its team list, events and assets. This cannot be undone.</p><Button variant="destructive" className="gap-2" onClick={() => setDeleteClubOpen(true)} data-testid="button-delete-club"><Trash2 className="h-4 w-4" /> Delete club</Button></CardContent></Card>
         </div>
         <DeleteConfirm
@@ -273,6 +303,24 @@ export function ClubAdmin() {
           pending={deleteEvent.isPending}
           onConfirm={handleDeleteEvent}
         />
+        <Dialog open={eventToEdit !== null} onOpenChange={(next) => { if (!next) setEventToEdit(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>Edit event</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium">Event title</label>
+                <Input value={editEventTitle} onChange={(e) => setEditEventTitle(e.target.value)} data-testid="input-edit-club-event-title" />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium">Date &amp; time</label>
+                <Input type="datetime-local" value={editEventDate} onChange={(e) => setEditEventDate(e.target.value)} data-testid="input-edit-club-event-date" />
+              </div>
+              <Button onClick={() => void handleEditEvent()} disabled={editEvent.isPending} className="w-full" data-testid="button-save-club-event">
+                {editEvent.isPending ? "Saving..." : "Save changes"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );

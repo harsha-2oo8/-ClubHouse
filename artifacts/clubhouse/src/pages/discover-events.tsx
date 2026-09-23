@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@clerk/react";
 import { Calendar, Users, ExternalLink, Plus, Filter, Pencil, Trash2, Flag } from "lucide-react";
-import { useListEvents, getListEventsQueryKey, useGetMyProfile, getGetMyProfileQueryKey, useCreateEvent, useRegisterForEvent, useUpdateEvent, useDeleteEvent } from "@workspace/api-client-react";
+import { useListEvents, getListEventsQueryKey, useGetMyProfile, getGetMyProfileQueryKey, useCreateEvent, useRegisterForEvent, useUpdateEvent, useDeleteEvent, ApiError } from "@workspace/api-client-react";
 import { DeleteConfirm } from "@/components/delete-confirm";
 import { ReportDialog } from "@/components/report-dialog";
 import { DiscoverTabs } from "@/components/social/discover-tabs";
@@ -39,7 +39,10 @@ const createSchema = z.object({
   startDate: z.string().min(1, "Start date required"),
   endDate: z.string().optional(),
   registrationLink: z.string().url().optional().or(z.literal("")),
-  maxParticipants: z.coerce.number().int().min(1).optional(),
+  maxParticipants: z.preprocess(
+    (v) => (v === "" || v === undefined || v === null ? undefined : v),
+    z.coerce.number().int().min(1).optional(),
+  ),
 });
 
 type CreateValues = z.infer<typeof createSchema>;
@@ -240,8 +243,12 @@ export default function DiscoverEvents() {
       await registerForEvent.mutateAsync({ eventId });
       qc.invalidateQueries({ queryKey: getListEventsQueryKey() });
       toast({ title: "Registered!" });
-    } catch {
-      toast({ title: "Already registered or error occurred", variant: "destructive" });
+    } catch (e) {
+      const message =
+        e instanceof ApiError && e.status === 409
+          ? "Event is full or already registered"
+          : "Registration failed";
+      toast({ title: message, variant: "destructive" });
     }
   }
 
@@ -307,6 +314,9 @@ export default function DiscoverEvents() {
                     )} />
                     <FormField control={form.control} name="registrationLink" render={({ field }) => (
                       <FormItem><FormLabel>External Registration Link <span className="text-muted-foreground font-normal">(optional)</span></FormLabel><FormControl><Input placeholder="https://..." data-testid="input-reg-link" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="maxParticipants" render={({ field }) => (
+                      <FormItem><FormLabel>Max Participants <span className="text-muted-foreground font-normal">(optional)</span></FormLabel><FormControl><Input type="number" min={1} placeholder="e.g. 50" data-testid="input-max-participants" {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <Button type="submit" className="w-full" disabled={createEvent.isPending || updateEvent.isPending} data-testid="button-submit-event">
                       {editingEvent ? (updateEvent.isPending ? "Saving..." : "Save changes") : (createEvent.isPending ? "Creating..." : "Create Event")}

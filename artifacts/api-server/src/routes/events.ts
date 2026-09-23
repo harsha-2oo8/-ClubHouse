@@ -88,16 +88,32 @@ router.get("/:eventId", async (req: Request, res: Response) => {
   res.json(await formatEvent(events[0]));
 });
 
-// Register for event
+// Register for event. Enforces maxParticipants (no waitlist exists yet —
+// full events reject with 409; see docs for the roadmap note).
 router.post("/:eventId/register", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
   const id = parseInt(getParam(req, "eventId"));
+
+  const events = await db.select().from(clubEventsTable).where(eq(clubEventsTable.id, id)).limit(1);
+  if (!events.length) {
+    res.status(404).json({ error: "Event not found" });
+    return;
+  }
 
   const existing = await db.select().from(eventRegistrationsTable)
     .where(and(eq(eventRegistrationsTable.eventId, id), eq(eventRegistrationsTable.clerkId, userId!))).limit(1);
   if (existing.length) {
     res.status(409).json({ error: "Already registered" });
     return;
+  }
+
+  if (events[0].maxParticipants != null) {
+    const count = await db.select({ count: sql<number>`count(*)` })
+      .from(eventRegistrationsTable).where(eq(eventRegistrationsTable.eventId, id));
+    if (Number(count[0]?.count ?? 0) >= events[0].maxParticipants) {
+      res.status(409).json({ error: "Event is full" });
+      return;
+    }
   }
 
   const [reg] = await db.insert(eventRegistrationsTable).values({

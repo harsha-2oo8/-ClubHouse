@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRoute, Link, useLocation } from "wouter";
 import { useAuth } from "@clerk/react";
-import { Users, Send, Calendar, Plus, Lock, Unlock, Video, Clock, ArrowLeft, Search, UserPlus, Link2, Copy, Check, Trash2, Flag } from "lucide-react";
+import { Users, Send, Calendar, Plus, Lock, Unlock, Video, Clock, ArrowLeft, Search, UserPlus, Link2, Copy, Check, Trash2, Flag, Pencil } from "lucide-react";
 import {
   useGetProject, getGetProjectQueryKey,
   useGetProjectMembers, getGetProjectMembersQueryKey,
@@ -11,6 +11,8 @@ import {
   useSearchUsers, useInviteUserToProject, getSearchUsersQueryKey,
   useGetMyProfile, getGetMyProfileQueryKey,
   useDeleteProject, useDeleteProjectEvent,
+  useGetProjectApplications, getGetProjectApplicationsQueryKey,
+  useUpdateProjectApplication, useUpdateProject,
 } from "@workspace/api-client-react";
 import { DeleteConfirm } from "@/components/delete-confirm";
 import { ReportDialog } from "@/components/report-dialog";
@@ -24,6 +26,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -52,8 +56,18 @@ const eventSchema = z.object({
   scheduledAt: z.string().min(1, "Date required"),
 });
 
+const editSchema = z.object({
+  title: z.string().min(2, "Title required"),
+  description: z.string().optional(),
+  techStack: z.string().optional(),
+  status: z.enum(["planning", "active", "completed", "on_hold"]),
+  visibility: z.enum(["public", "private", "college_only"]),
+  openForApplications: z.boolean(),
+});
+
 type ApplyValues = z.infer<typeof applySchema>;
 type EventValues = z.infer<typeof eventSchema>;
+type EditValues = z.infer<typeof editSchema>;
 
 export default function ProjectPage() {
   const [, params] = useRoute("/projects/:projectId");
@@ -107,6 +121,37 @@ export default function ProjectPage() {
   const createEvent = useCreateProjectEvent();
   const deleteProject = useDeleteProject();
   const deleteEvent = useDeleteProjectEvent();
+  const updateApplication = useUpdateProjectApplication();
+  const updateProject = useUpdateProject();
+  const [editOpen, setEditOpen] = useState(false);
+
+  const editForm = useForm<EditValues>({
+    resolver: zodResolver(editSchema),
+    defaultValues: { title: "", description: "", techStack: "", status: "planning", visibility: "public", openForApplications: false },
+  });
+
+  function startEdit() {
+    editForm.reset({
+      title: String(typedProject?.title ?? ""),
+      description: String(typedProject?.description ?? ""),
+      techStack: String(typedProject?.techStack ?? ""),
+      status: (typeof typedProject?.status === "string" ? typedProject.status : "planning") as EditValues["status"],
+      visibility: (typeof typedProject?.visibility === "string" ? typedProject.visibility : "public") as EditValues["visibility"],
+      openForApplications: Boolean(typedProject?.openForApplications),
+    });
+    setEditOpen(true);
+  }
+
+  async function handleEdit(values: EditValues) {
+    try {
+      await updateProject.mutateAsync({ projectId, data: values });
+      qc.invalidateQueries({ queryKey: getGetProjectQueryKey(projectId) });
+      toast({ title: "Project updated!" });
+      setEditOpen(false);
+    } catch {
+      toast({ title: "Could not update project", variant: "destructive" });
+    }
+  }
 
   async function handleDeleteProject() {
     try {
@@ -147,6 +192,23 @@ export default function ProjectPage() {
   const canDeleteProject = Boolean(
     userId && typedProject && (typedProject.ownerId === userId || typedProfile?.role === "admin"),
   );
+
+  const { data: applications } = useGetProjectApplications(projectId, {
+    query: { queryKey: getGetProjectApplicationsQueryKey(projectId), enabled: !!projectId && canDeleteProject },
+  });
+  const typedApplications = (applications as unknown as Array<Record<string, unknown>>) ?? [];
+  const pendingApplications = typedApplications.filter((a) => a.status === "pending");
+
+  async function handleApplication(applicationId: number, status: "approved" | "rejected") {
+    try {
+      await updateApplication.mutateAsync({ projectId, applicationId, data: { status } });
+      qc.invalidateQueries({ queryKey: getGetProjectApplicationsQueryKey(projectId) });
+      qc.invalidateQueries({ queryKey: getGetProjectMembersQueryKey(projectId) });
+      toast({ title: status === "approved" ? "Member approved!" : "Application rejected" });
+    } catch {
+      toast({ title: "Could not update application", variant: "destructive" });
+    }
+  }
   const tech = typedProject?.techStack ? String(typedProject.techStack).split(",").map(s => s.trim()).filter(Boolean) : [];
   const requiredRoles = (typedProject?.requiredRoles as Array<{ id: number; role: string; description?: string }>) ?? [];
 
@@ -274,6 +336,78 @@ export default function ProjectPage() {
             </div>
           </div>
           <div className="flex gap-2 flex-shrink-0">
+            {canDeleteProject && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={startEdit}
+                  data-testid="button-edit-project"
+                >
+                  <Pencil className="h-4 w-4" /> Edit
+                </Button>
+                <Dialog open={editOpen} onOpenChange={setEditOpen}>
+                  <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+                    <DialogHeader><DialogTitle>Edit project</DialogTitle></DialogHeader>
+                    <Form {...editForm}>
+                      <form onSubmit={editForm.handleSubmit(handleEdit)} className="space-y-4">
+                        <FormField control={editForm.control} name="title" render={({ field }) => (
+                          <FormItem><FormLabel>Title</FormLabel><FormControl><Input data-testid="input-edit-title" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={editForm.control} name="description" render={({ field }) => (
+                          <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea rows={3} className="resize-none" data-testid="input-edit-desc" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={editForm.control} name="techStack" render={({ field }) => (
+                          <FormItem><FormLabel>Tech Stack</FormLabel><FormControl><Input data-testid="input-edit-tech" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField control={editForm.control} name="status" render={({ field }) => (
+                            <FormItem><FormLabel>Status</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl><SelectTrigger data-testid="select-edit-status"><SelectValue /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                  <SelectItem value="planning">Planning</SelectItem>
+                                  <SelectItem value="active">Active</SelectItem>
+                                  <SelectItem value="completed">Completed</SelectItem>
+                                  <SelectItem value="on_hold">On Hold</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage /></FormItem>
+                          )} />
+                          <FormField control={editForm.control} name="visibility" render={({ field }) => (
+                            <FormItem><FormLabel>Visibility</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl><SelectTrigger data-testid="select-edit-visibility"><SelectValue /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                  <SelectItem value="public">Public</SelectItem>
+                                  <SelectItem value="college_only">College Only</SelectItem>
+                                  <SelectItem value="private">Private</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage /></FormItem>
+                          )} />
+                        </div>
+                        <FormField control={editForm.control} name="openForApplications" render={({ field }) => (
+                          <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                            <div>
+                              <FormLabel>Open for applications</FormLabel>
+                              <p className="text-xs text-muted-foreground">Let students apply to join</p>
+                            </div>
+                            <FormControl>
+                              <Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-edit-open" />
+                            </FormControl>
+                          </FormItem>
+                        )} />
+                        <Button type="submit" className="w-full" disabled={updateProject.isPending} data-testid="button-save-project">
+                          {updateProject.isPending ? "Saving..." : "Save changes"}
+                        </Button>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
+              </>
+            )}
             {isSignedIn && (
               <Button
                 variant="ghost"
@@ -430,6 +564,14 @@ export default function ProjectPage() {
             <TabsTrigger value="members">Members ({typedMembers.length})</TabsTrigger>
             {isMember && <TabsTrigger value="chat">Chat</TabsTrigger>}
             {isMember && <TabsTrigger value="events">Meetings ({typedEvents.length})</TabsTrigger>}
+            {canDeleteProject && (
+              <TabsTrigger value="applications" data-testid="tab-applications">
+                Applications
+                {pendingApplications.length > 0 && (
+                  <Badge className="ml-2 h-5 px-1.5 text-xs">{pendingApplications.length}</Badge>
+                )}
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="members">
@@ -452,6 +594,62 @@ export default function ProjectPage() {
               ))}
             </div>
           </TabsContent>
+
+          {canDeleteProject && (
+            <TabsContent value="applications">
+              {typedApplications.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No applications yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {typedApplications.map((a) => (
+                    <Card key={String(a.id)} data-testid={`card-application-${a.id}`}>
+                      <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-1">
+                            <p className="font-medium text-sm" data-testid={`text-applicant-${a.id}`}>{String(a.userName || "Student")}</p>
+                            {Boolean(a.appliedRole) && (
+                              <Badge variant="secondary" className="text-xs">{String(a.appliedRole)}</Badge>
+                            )}
+                            <Badge
+                              variant={a.status === "pending" ? "outline" : "secondary"}
+                              className="text-xs capitalize"
+                            >
+                              {String(a.status)}
+                            </Badge>
+                          </div>
+                          {Boolean(a.message) && (
+                            <p className="text-sm text-muted-foreground line-clamp-2">{String(a.message)}</p>
+                          )}
+                        </div>
+                        {a.status === "pending" && (
+                          <div className="flex gap-2 flex-shrink-0">
+                            <Button
+                              size="sm"
+                              className="gap-1.5 bg-green-600 hover:bg-green-700"
+                              onClick={() => void handleApplication(Number(a.id), "approved")}
+                              disabled={updateApplication.isPending}
+                              data-testid={`button-approve-application-${a.id}`}
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void handleApplication(Number(a.id), "rejected")}
+                              disabled={updateApplication.isPending}
+                              data-testid={`button-reject-application-${a.id}`}
+                            >
+                              Reject
+                            </Button>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          )}
 
           {isMember && (
             <TabsContent value="chat">

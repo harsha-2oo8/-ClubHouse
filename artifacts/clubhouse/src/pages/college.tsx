@@ -7,6 +7,8 @@ import {
   useGetCollegeMembers, getGetCollegeMembersQueryKey,
   useGetCollegeProjects, getGetCollegeProjectsQueryKey,
   useGetCollegeMeetings, getGetCollegeMeetingsQueryKey,
+  useGetCollegeJoinRequests, getGetCollegeJoinRequestsQueryKey,
+  useUpdateCollegeJoinRequest,
   useJoinCollege, useApplyForModerator,
   useCreateCollegeMeeting,
   useGetMyProfile, getGetMyProfileQueryKey,
@@ -62,6 +64,7 @@ export default function CollegePage() {
   const joinCollege = useJoinCollege();
   const applyModerator = useApplyForModerator();
   const createMeeting = useCreateCollegeMeeting();
+  const updateJoinRequest = useUpdateCollegeJoinRequest();
 
   const form = useForm<MeetingValues>({
     resolver: zodResolver(meetingSchema),
@@ -77,6 +80,22 @@ export default function CollegePage() {
   const myMembership = typedMembers.find(m => m.clerkId === userId);
   const isMember = !!myMembership;
   const isModerator = myMembership?.role === "moderator" || myMembership?.role === "admin" || typedProfile?.role === "admin";
+
+  const { data: joinRequests } = useGetCollegeJoinRequests(collegeId, {
+    query: { queryKey: getGetCollegeJoinRequestsQueryKey(collegeId), enabled: !!collegeId && !!isModerator },
+  });
+  const typedJoinRequests = (joinRequests as unknown as Array<Record<string, unknown>>) ?? [];
+
+  async function handleJoinRequest(requestId: number, status: "approved" | "rejected") {
+    try {
+      await updateJoinRequest.mutateAsync({ collegeId, requestId, data: { status } });
+      qc.invalidateQueries({ queryKey: getGetCollegeJoinRequestsQueryKey(collegeId) });
+      qc.invalidateQueries({ queryKey: getGetCollegeMembersQueryKey(collegeId) });
+      toast({ title: status === "approved" ? "Member approved!" : "Request rejected" });
+    } catch {
+      toast({ title: "Could not update request", variant: "destructive" });
+    }
+  }
 
   async function handleJoin() {
     if (!isSignedIn) { toast({ title: "Sign in to join" }); return; }
@@ -214,6 +233,14 @@ export default function CollegePage() {
             <TabsTrigger value="members">Members ({typedMembers.length})</TabsTrigger>
             <TabsTrigger value="projects">Projects ({typedProjects.length})</TabsTrigger>
             {isMember && <TabsTrigger value="meetings">Meetings</TabsTrigger>}
+            {isModerator && (
+              <TabsTrigger value="requests" data-testid="tab-college-requests">
+                Requests
+                {typedJoinRequests.length > 0 && (
+                  <Badge className="ml-2 h-5 px-1.5 text-xs">{typedJoinRequests.length}</Badge>
+                )}
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="overview">
@@ -280,6 +307,47 @@ export default function CollegePage() {
               {typedMembers.length === 0 && <p className="text-sm text-muted-foreground col-span-full">No members yet.</p>}
             </div>
           </TabsContent>
+
+          {isModerator && (
+            <TabsContent value="requests">
+              {typedJoinRequests.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No pending join requests.</p>
+              ) : (
+                <div className="space-y-3">
+                  {typedJoinRequests.map(r => (
+                    <Card key={String(r.id)} data-testid={`card-join-request-${r.id}`}>
+                      <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm" data-testid={`text-request-name-${r.id}`}>{String(r.userName || "Student")}</p>
+                          <p className="text-xs text-muted-foreground truncate">{String(r.userEmail || "")}</p>
+                        </div>
+                        <div className="flex gap-2 flex-shrink-0">
+                          <Button
+                            size="sm"
+                            className="gap-1.5 bg-green-600 hover:bg-green-700"
+                            onClick={() => void handleJoinRequest(Number(r.id), "approved")}
+                            disabled={updateJoinRequest.isPending}
+                            data-testid={`button-approve-join-${r.id}`}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void handleJoinRequest(Number(r.id), "rejected")}
+                            disabled={updateJoinRequest.isPending}
+                            data-testid={`button-reject-join-${r.id}`}
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          )}
 
           <TabsContent value="projects">
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">

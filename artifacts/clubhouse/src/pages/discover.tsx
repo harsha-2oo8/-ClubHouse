@@ -13,6 +13,7 @@ import { z } from "zod";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useCreateProject } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -173,6 +174,17 @@ export default function Discover() {
                             </SelectContent>
                           </Select>
                           <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="openForApplications" render={({ field }) => (
+                        <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                          <div>
+                            <FormLabel>Open for applications</FormLabel>
+                            <p className="text-xs text-muted-foreground">Let students apply to join</p>
+                          </div>
+                          <FormControl>
+                            <Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-open-applications" />
+                          </FormControl>
                         </FormItem>
                       )} />
                       <Button type="submit" className="w-full" disabled={createProject.isPending} data-testid="button-submit-project">
