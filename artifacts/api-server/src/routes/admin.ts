@@ -7,6 +7,7 @@ import { getParam, getLimit } from "../lib/params";
 import { notificationService } from "../lib/notify";
 import { recordAuditLog } from "../lib/audit";
 import { strictWriteLimit } from "../lib/rateLimit";
+import { assignCollegeHead, seedSystemRoles } from "../lib/collegeRbac";
 
 const router = Router();
 
@@ -84,6 +85,9 @@ router.patch("/college-registrations/:collegeId", requireAdmin, strictWriteLimit
           collegeId: id, clerkId: updated.registeredBy, role: "moderator",
         });
       }
+      // Governance bootstrap: system roles + registrant as College Head.
+      await seedSystemRoles(id, updated.registeredBy);
+      await assignCollegeHead(id, updated.registeredBy, updated.registeredBy);
     }
   }
 

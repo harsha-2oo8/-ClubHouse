@@ -124,6 +124,33 @@ export const CollegeMemberRole = {
   admin: 'admin',
 } as const;
 
+export type CollegeMemberMemberType = typeof CollegeMemberMemberType[keyof typeof CollegeMemberMemberType];
+
+
+export const CollegeMemberMemberType = {
+  STUDENT: 'STUDENT',
+  TEACHER: 'TEACHER',
+  STAFF: 'STAFF',
+  TRUSTEE: 'TRUSTEE',
+  COLLEGE_HEAD: 'COLLEGE_HEAD',
+} as const;
+
+export type CollegeMemberMemberStatus = typeof CollegeMemberMemberStatus[keyof typeof CollegeMemberMemberStatus];
+
+
+export const CollegeMemberMemberStatus = {
+  VERIFIED: 'VERIFIED',
+  PENDING: 'PENDING',
+  REJECTED: 'REJECTED',
+  SUSPENDED: 'SUSPENDED',
+} as const;
+
+export type CollegeMemberAssignedRolesItem = {
+  id: number;
+  name: string;
+  priority: number;
+};
+
 export interface CollegeMember {
   clerkId: string;
   name: string;
@@ -135,7 +162,116 @@ export interface CollegeMember {
   role: CollegeMemberRole;
   /** @nullable */
   customRole?: string | null;
+  memberType?: CollegeMemberMemberType;
+  memberStatus?: CollegeMemberMemberStatus;
+  assignedRoles?: CollegeMemberAssignedRolesItem[];
   joinedAt: string;
+}
+
+export type MemberTypeUpdateMemberType = typeof MemberTypeUpdateMemberType[keyof typeof MemberTypeUpdateMemberType];
+
+
+export const MemberTypeUpdateMemberType = {
+  STUDENT: 'STUDENT',
+  TEACHER: 'TEACHER',
+  STAFF: 'STAFF',
+  TRUSTEE: 'TRUSTEE',
+  COLLEGE_HEAD: 'COLLEGE_HEAD',
+} as const;
+
+export interface MemberTypeUpdate {
+  memberType: MemberTypeUpdateMemberType;
+}
+
+export interface MemberTypeStatus {
+  clerkId: string;
+  memberType: string;
+  memberStatus: string;
+}
+
+export interface CollegeRole {
+  id: number;
+  collegeId: number;
+  name: string;
+  memberType: string;
+  priority: number;
+  isSystem?: boolean;
+  /** @nullable */
+  description?: string | null;
+  permissions?: string[];
+  memberCount?: number;
+  createdAt?: string;
+}
+
+export type CollegeRoleInputMemberType = typeof CollegeRoleInputMemberType[keyof typeof CollegeRoleInputMemberType];
+
+
+export const CollegeRoleInputMemberType = {
+  STUDENT: 'STUDENT',
+  TEACHER: 'TEACHER',
+  STAFF: 'STAFF',
+  TRUSTEE: 'TRUSTEE',
+  COLLEGE_HEAD: 'COLLEGE_HEAD',
+} as const;
+
+export interface CollegeRoleInput {
+  name: string;
+  memberType?: CollegeRoleInputMemberType;
+  /**
+     * @minimum 1
+     * @maximum 999
+     */
+  priority?: number;
+  /** @nullable */
+  description?: string | null;
+  permissions?: string[];
+}
+
+export interface CollegeRoleUpdate {
+  name?: string;
+  /** @nullable */
+  description?: string | null;
+  permissions?: string[];
+}
+
+export interface RoleAssignment {
+  id?: number;
+  roleId: number;
+  collegeId?: number;
+  clerkId: string;
+  userName?: string;
+  createdAt?: string;
+}
+
+export type RolesCatalogPermissionsItem = {
+  key: string;
+  scope: string;
+  label: string;
+  description: string;
+};
+
+export type RolesCatalogTemplatesItem = {
+  name?: string;
+  memberType?: string;
+  priority?: number;
+  description?: string;
+  permissions?: string[];
+};
+
+export interface RolesCatalog {
+  permissions?: RolesCatalogPermissionsItem[];
+  templates?: RolesCatalogTemplatesItem[];
+}
+
+export interface CollegeSettings {
+  collegeId: number;
+  allowStudentCreate?: boolean;
+  openJoin?: boolean;
+}
+
+export interface CollegeSettingsInput {
+  allowStudentCreate?: boolean;
+  openJoin?: boolean;
 }
 
 export type CollegeJoinRequestStatus = typeof CollegeJoinRequestStatus[keyof typeof CollegeJoinRequestStatus];
@@ -834,6 +970,23 @@ search?: string;
  * @maximum 100
  */
 limit?: number;
+};
+
+export type VerifyMemberTypeBodyStatus = typeof VerifyMemberTypeBodyStatus[keyof typeof VerifyMemberTypeBodyStatus];
+
+
+export const VerifyMemberTypeBodyStatus = {
+  VERIFIED: 'VERIFIED',
+  REJECTED: 'REJECTED',
+  SUSPENDED: 'SUSPENDED',
+} as const;
+
+export type VerifyMemberTypeBody = {
+  status: VerifyMemberTypeBodyStatus;
+};
+
+export type AssignCollegeRoleBody = {
+  clerkId: string;
 };
 
 export type ListProjectsParams = {

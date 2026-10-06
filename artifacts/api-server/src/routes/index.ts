@@ -9,6 +9,7 @@ import dashboardRouter from "./dashboard";
 import adminRouter from "./admin";
 import clubsRouter from "./clubs";
 import reportsRouter from "./reports";
+import collegeRolesRouter from "./collegeRoles";
 import storageRouter from "./storage";
 
 const router: IRouter = Router();
@@ -23,6 +24,7 @@ router.use("/dashboard", dashboardRouter);
 router.use("/admin", adminRouter);
 router.use("/clubs", clubsRouter);
 router.use("/reports", reportsRouter);
+router.use(collegeRolesRouter);
 router.use(storageRouter);
 
 export default router;

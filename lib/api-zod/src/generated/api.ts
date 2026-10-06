@@ -299,6 +299,13 @@ export const GetCollegeMembersResponseItem = zod.object({
   "semester": zod.number().optional(),
   "role": zod.enum(['member', 'moderator', 'admin']),
   "customRole": zod.string().nullish(),
+  "memberType": zod.enum(['STUDENT', 'TEACHER', 'STAFF', 'TRUSTEE', 'COLLEGE_HEAD']).optional(),
+  "memberStatus": zod.enum(['VERIFIED', 'PENDING', 'REJECTED', 'SUSPENDED']).optional(),
+  "assignedRoles": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "priority": zod.number()
+})).optional(),
   "joinedAt": zod.coerce.date()
 })
 export const GetCollegeMembersResponse = zod.array(GetCollegeMembersResponseItem)
@@ -456,7 +463,278 @@ export const UpdateMemberRoleResponse = zod.object({
   "semester": zod.number().optional(),
   "role": zod.enum(['member', 'moderator', 'admin']),
   "customRole": zod.string().nullish(),
+  "memberType": zod.enum(['STUDENT', 'TEACHER', 'STAFF', 'TRUSTEE', 'COLLEGE_HEAD']).optional(),
+  "memberStatus": zod.enum(['VERIFIED', 'PENDING', 'REJECTED', 'SUSPENDED']).optional(),
+  "assignedRoles": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "priority": zod.number()
+})).optional(),
   "joinedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Request or set a member identity type (self-request verified for STUDENT; College Head sets others)
+ */
+export const UpdateMemberTypeParams = zod.object({
+  "collegeId": zod.coerce.number(),
+  "userId": zod.coerce.string()
+})
+
+export const UpdateMemberTypeBody = zod.object({
+  "memberType": zod.enum(['STUDENT', 'TEACHER', 'STAFF', 'TRUSTEE', 'COLLEGE_HEAD'])
+})
+
+export const UpdateMemberTypeResponse = zod.object({
+  "clerkId": zod.string(),
+  "memberType": zod.string(),
+  "memberStatus": zod.string()
+})
+
+
+/**
+ * @summary Verify, reject or suspend an identity claim (College Head)
+ */
+export const VerifyMemberTypeParams = zod.object({
+  "collegeId": zod.coerce.number(),
+  "userId": zod.coerce.string()
+})
+
+export const VerifyMemberTypeBody = zod.object({
+  "status": zod.enum(['VERIFIED', 'REJECTED', 'SUSPENDED'])
+})
+
+export const VerifyMemberTypeResponse = zod.object({
+  "clerkId": zod.string(),
+  "memberType": zod.string(),
+  "memberStatus": zod.string()
+})
+
+
+/**
+ * @summary Permission catalog and built-in role templates
+ */
+export const GetCollegeRolesCatalogParams = zod.object({
+  "collegeId": zod.coerce.number()
+})
+
+export const GetCollegeRolesCatalogResponse = zod.object({
+  "permissions": zod.array(zod.object({
+  "key": zod.string(),
+  "scope": zod.string(),
+  "label": zod.string(),
+  "description": zod.string()
+})).optional(),
+  "templates": zod.array(zod.object({
+  "name": zod.string().optional(),
+  "memberType": zod.string().optional(),
+  "priority": zod.number().optional(),
+  "description": zod.string().optional(),
+  "permissions": zod.array(zod.string()).optional()
+})).optional()
+})
+
+
+/**
+ * @summary List college roles with permissions and member counts
+ */
+export const ListCollegeRolesParams = zod.object({
+  "collegeId": zod.coerce.number()
+})
+
+export const ListCollegeRolesResponseItem = zod.object({
+  "id": zod.number(),
+  "collegeId": zod.number(),
+  "name": zod.string(),
+  "memberType": zod.string(),
+  "priority": zod.number(),
+  "isSystem": zod.boolean().optional(),
+  "description": zod.string().nullish(),
+  "permissions": zod.array(zod.string()).optional(),
+  "memberCount": zod.number().optional(),
+  "createdAt": zod.coerce.date().optional()
+})
+export const ListCollegeRolesResponse = zod.array(ListCollegeRolesResponseItem)
+
+
+/**
+ * @summary Create a custom role (College Head, hierarchy-guarded)
+ */
+export const CreateCollegeRoleParams = zod.object({
+  "collegeId": zod.coerce.number()
+})
+
+export const createCollegeRoleBodyPriorityMax = 999;
+
+
+
+export const CreateCollegeRoleBody = zod.object({
+  "name": zod.string(),
+  "memberType": zod.enum(['STUDENT', 'TEACHER', 'STAFF', 'TRUSTEE', 'COLLEGE_HEAD']).optional(),
+  "priority": zod.number().min(1).max(createCollegeRoleBodyPriorityMax).optional(),
+  "description": zod.string().nullish(),
+  "permissions": zod.array(zod.string()).optional()
+})
+
+export const CreateCollegeRoleResponse = zod.object({
+  "id": zod.number(),
+  "collegeId": zod.number(),
+  "name": zod.string(),
+  "memberType": zod.string(),
+  "priority": zod.number(),
+  "isSystem": zod.boolean().optional(),
+  "description": zod.string().nullish(),
+  "permissions": zod.array(zod.string()).optional(),
+  "memberCount": zod.number().optional(),
+  "createdAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Seed built-in system roles (College Head)
+ */
+export const SeedCollegeRolesParams = zod.object({
+  "collegeId": zod.coerce.number()
+})
+
+export const SeedCollegeRolesResponseItem = zod.object({
+  "id": zod.number(),
+  "collegeId": zod.number(),
+  "name": zod.string(),
+  "memberType": zod.string(),
+  "priority": zod.number(),
+  "isSystem": zod.boolean().optional(),
+  "description": zod.string().nullish(),
+  "permissions": zod.array(zod.string()).optional(),
+  "memberCount": zod.number().optional(),
+  "createdAt": zod.coerce.date().optional()
+})
+export const SeedCollegeRolesResponse = zod.array(SeedCollegeRolesResponseItem)
+
+
+/**
+ * @summary Update a role (College Head; system name/type/priority locked)
+ */
+export const UpdateCollegeRoleParams = zod.object({
+  "collegeId": zod.coerce.number(),
+  "roleId": zod.coerce.number()
+})
+
+export const UpdateCollegeRoleBody = zod.object({
+  "name": zod.string().optional(),
+  "description": zod.string().nullish(),
+  "permissions": zod.array(zod.string()).optional()
+})
+
+export const UpdateCollegeRoleResponse = zod.object({
+  "id": zod.number(),
+  "collegeId": zod.number(),
+  "name": zod.string(),
+  "memberType": zod.string(),
+  "priority": zod.number(),
+  "isSystem": zod.boolean().optional(),
+  "description": zod.string().nullish(),
+  "permissions": zod.array(zod.string()).optional(),
+  "memberCount": zod.number().optional(),
+  "createdAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Delete a custom role (system roles protected)
+ */
+export const DeleteCollegeRoleParams = zod.object({
+  "collegeId": zod.coerce.number(),
+  "roleId": zod.coerce.number()
+})
+
+export const DeleteCollegeRoleResponse = zod.void()
+
+
+/**
+ * @summary List role assignments (College Head)
+ */
+export const ListRoleAssignmentsParams = zod.object({
+  "collegeId": zod.coerce.number(),
+  "roleId": zod.coerce.number()
+})
+
+export const ListRoleAssignmentsResponseItem = zod.object({
+  "id": zod.number().optional(),
+  "roleId": zod.number(),
+  "collegeId": zod.number().optional(),
+  "clerkId": zod.string(),
+  "userName": zod.string().optional(),
+  "createdAt": zod.coerce.date().optional()
+})
+export const ListRoleAssignmentsResponse = zod.array(ListRoleAssignmentsResponseItem)
+
+
+/**
+ * @summary Assign a role to a member (College Head, hierarchy-guarded)
+ */
+export const AssignCollegeRoleParams = zod.object({
+  "collegeId": zod.coerce.number(),
+  "roleId": zod.coerce.number()
+})
+
+export const AssignCollegeRoleBody = zod.object({
+  "clerkId": zod.string()
+})
+
+export const AssignCollegeRoleResponse = zod.object({
+  "id": zod.number().optional(),
+  "roleId": zod.number(),
+  "collegeId": zod.number().optional(),
+  "clerkId": zod.string(),
+  "userName": zod.string().optional(),
+  "createdAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Remove a role assignment (last College Head protected)
+ */
+export const UnassignCollegeRoleParams = zod.object({
+  "collegeId": zod.coerce.number(),
+  "roleId": zod.coerce.number(),
+  "assignmentId": zod.coerce.number()
+})
+
+export const UnassignCollegeRoleResponse = zod.void()
+
+
+/**
+ * @summary Get college governance settings (College Head)
+ */
+export const GetCollegeSettingsParams = zod.object({
+  "collegeId": zod.coerce.number()
+})
+
+export const GetCollegeSettingsResponse = zod.object({
+  "collegeId": zod.number(),
+  "allowStudentCreate": zod.boolean().optional(),
+  "openJoin": zod.boolean().optional()
+})
+
+
+/**
+ * @summary Update college governance settings (College Head)
+ */
+export const UpdateCollegeSettingsParams = zod.object({
+  "collegeId": zod.coerce.number()
+})
+
+export const UpdateCollegeSettingsBody = zod.object({
+  "allowStudentCreate": zod.boolean().optional(),
+  "openJoin": zod.boolean().optional()
+})
+
+export const UpdateCollegeSettingsResponse = zod.object({
+  "collegeId": zod.number(),
+  "allowStudentCreate": zod.boolean().optional(),
+  "openJoin": zod.boolean().optional()
 })
 
 

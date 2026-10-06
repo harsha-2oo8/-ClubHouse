@@ -6,6 +6,7 @@ import { requireAuth } from "../middlewares/auth";
 import { getParam, getLimit } from "../lib/params";
 import { strictWriteLimit } from "../lib/rateLimit";
 import { canDeleteEvent } from "../lib/policy";
+import { collegeCreateAllowed } from "../lib/collegeRbac";
 import { notificationService } from "../lib/notify";
 import { recordAuditLog } from "../lib/audit";
 
@@ -65,6 +66,10 @@ router.post("/", requireAuth, strictWriteLimit(), async (req: Request, res: Resp
         res.status(403).json({ error: "Moderator access required" });
         return;
       }
+    }
+    if (!(await collegeCreateAllowed(userId!, collegeId, "event.create"))) {
+      res.status(403).json({ error: "This college does not allow students to create events." });
+      return;
     }
   }
 

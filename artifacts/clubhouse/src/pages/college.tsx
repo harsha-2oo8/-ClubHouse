@@ -29,6 +29,7 @@ import { z } from "zod";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { RolesTab } from "@/components/roles-tab";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -241,6 +242,11 @@ export default function CollegePage() {
                 )}
               </TabsTrigger>
             )}
+            {isModerator && (
+              <TabsTrigger value="roles" data-testid="tab-college-roles">
+                Roles &amp; Permissions
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="overview">
@@ -296,6 +302,15 @@ export default function CollegePage() {
                       <div className="min-w-0 flex-1">
                         <p className="font-medium text-sm truncate" data-testid={`text-member-name-${m.clerkId}`}>{String(m.name)}</p>
                         <p className="text-xs text-muted-foreground truncate">{String(m.course)}, Sem {String(m.semester)}</p>
+                        <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                          {String(m.memberType ?? "STUDENT")}
+                          {Array.isArray(m.assignedRoles) && m.assignedRoles.length > 0 && (
+                            <> · {(m.assignedRoles as Array<{ name: string }>).map((r) => r.name).join(", ")}</>
+                          )}
+                          {String(m.memberStatus ?? "VERIFIED") !== "VERIFIED" && (
+                            <> · {String(m.memberStatus).toLowerCase()}</>
+                          )}
+                        </p>
                       </div>
                       <Badge className={cn("text-xs border capitalize flex-shrink-0", roleColors[String(m.role)] ?? "bg-muted")} data-testid={`badge-role-${m.clerkId}`}>
                         {String(m.role)}
@@ -402,6 +417,12 @@ export default function CollegePage() {
               ))}
             </div>
           </TabsContent>
+
+          {isModerator && (
+            <TabsContent value="roles">
+              <RolesTab collegeId={collegeId} userId={userId ?? null} members={typedMembers} />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </AppLayout>

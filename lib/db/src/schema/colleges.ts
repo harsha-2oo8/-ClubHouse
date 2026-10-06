@@ -1,4 +1,4 @@
-import { index, pgTable, text, integer, timestamp, unique } from "drizzle-orm/pg-core";
+import { index, pgTable, text, integer, timestamp, unique, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -21,6 +21,10 @@ export const collegeMembersTable = pgTable("college_members", {
   clerkId: text("clerk_id").notNull(),
   role: text("role").notNull().default("member"),
   customRole: text("custom_role"),
+  /** Identity category — separate from granted capabilities (see college_roles). */
+  memberType: text("member_type").notNull().default("STUDENT"),
+  /** Verification of non-student identity claims. */
+  memberStatus: text("member_status").notNull().default("VERIFIED"),
   joinedAt: timestamp("joined_at").notNull().defaultNow(),
 }, (t) => [
   unique("college_members_college_clerk_unique").on(t.collegeId, t.clerkId),

@@ -6,6 +6,7 @@ import { requireAuth } from "../middlewares/auth";
 import { getParam, getLimit } from "../lib/params";
 import { strictWriteLimit } from "../lib/rateLimit";
 import { canDeleteProject, canDeleteProjectEvent, isAdmin } from "../lib/policy";
+import { collegeCreateAllowed } from "../lib/collegeRbac";
 import { notificationService } from "../lib/notify";
 import { recordAuditLog } from "../lib/audit";
 
@@ -58,6 +59,10 @@ router.post("/", requireAuth, strictWriteLimit(), async (req: Request, res: Resp
   const { title, description, techStack, visibility, collegeId, isJoint, openForApplications, requiredRoles } = req.body;
   if (!title || !visibility) {
     res.status(400).json({ error: "title and visibility are required" });
+    return;
+  }
+  if (collegeId && !(await collegeCreateAllowed(userId!, collegeId, "project.create"))) {
+    res.status(403).json({ error: "This college does not allow students to create projects." });
     return;
   }
 

@@ -4,6 +4,7 @@ import { db, collegesTable, collegeMembersTable, collegeJoinRequestsTable, moder
 import { eq, and, ilike, sql, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { notificationService } from "../lib/notify";
+import { getMemberRoles, collegeJoinAllowed } from "../lib/collegeRbac";
 import { getParam, getLimit } from "../lib/params";
 import { strictWriteLimit } from "../lib/rateLimit";
 
@@ -77,12 +78,13 @@ router.get("/:collegeId", async (req: Request, res: Response) => {
   res.json(await formatCollege(colleges[0]));
 });
 
-// Get members
+// Get members (adds identity type + assigned college roles for the Roles UI).
 router.get("/:collegeId/members", async (req: Request, res: Response) => {
   const id = parseInt(getParam(req, "collegeId"));
   const members = await db.select().from(collegeMembersTable).where(eq(collegeMembersTable.collegeId, id));
   const enriched = await Promise.all(members.map(async (m) => {
     const user = await getUserInfo(m.clerkId);
+    const roles = await getMemberRoles(id, m.clerkId);
     return {
       clerkId: m.clerkId,
       name: user?.name ?? "Unknown",
@@ -92,6 +94,9 @@ router.get("/:collegeId/members", async (req: Request, res: Response) => {
       semester: user?.semester ?? 0,
       role: m.role,
       customRole: m.customRole,
+      memberType: m.memberType,
+      memberStatus: m.memberStatus,
+      assignedRoles: roles.map((r) => ({ id: r.id, name: r.name, priority: r.priority })),
       joinedAt: m.joinedAt,
     };
   }));
@@ -116,6 +121,11 @@ router.post("/:collegeId/join", requireAuth, strictWriteLimit(), async (req: Req
     .where(and(eq(collegeJoinRequestsTable.collegeId, id), eq(collegeJoinRequestsTable.clerkId, userId!), eq(collegeJoinRequestsTable.status, "pending"))).limit(1);
   if (pending.length) {
     res.status(409).json({ error: "Join request already pending" });
+    return;
+  }
+
+  if (!(await collegeJoinAllowed(userId!, id))) {
+    res.status(403).json({ error: "Joining is disabled for this college." });
     return;
   }
 

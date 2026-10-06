@@ -27,6 +27,7 @@ import type {
   AdminGetUsersParams,
   AdminStats,
   AdminStatusUpdate,
+  AssignCollegeRoleBody,
   Club,
   ClubEvent,
   ClubEventInput,
@@ -43,6 +44,11 @@ import type {
   CollegeMeeting,
   CollegeMeetingInput,
   CollegeMember,
+  CollegeRole,
+  CollegeRoleInput,
+  CollegeRoleUpdate,
+  CollegeSettings,
+  CollegeSettingsInput,
   DashboardStats,
   EventRegistration,
   GetProjectMessagesParams,
@@ -51,6 +57,8 @@ import type {
   ListEventsParams,
   ListProjectsParams,
   ListReportsParams,
+  MemberTypeStatus,
+  MemberTypeUpdate,
   ModeratorApplication,
   ModeratorApplicationInput,
   Notification,
@@ -68,7 +76,9 @@ import type {
   ProjectUpdate,
   Report,
   ReportInput,
+  RoleAssignment,
   RoleUpdate,
+  RolesCatalog,
   SearchUsersParams,
   StatusUpdate,
   StorageUploadInput,
@@ -76,7 +86,8 @@ import type {
   UnreadCount,
   UpdateReportBody,
   UserProfile,
-  UserProfileUpdate
+  UserProfileUpdate,
+  VerifyMemberTypeBody
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -1388,6 +1399,969 @@ export const useUpdateMemberRole = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUpdateMemberRoleMutationOptions(options));
+    }
+
+export const getUpdateMemberTypeUrl = (collegeId: number,
+    userId: string,) => {
+
+
+
+
+  return `/api/colleges/${collegeId}/members/${userId}/type`
+}
+
+/**
+ * @summary Request or set a member identity type (self-request verified for STUDENT; College Head sets others)
+ */
+export const updateMemberType = async (collegeId: number,
+    userId: string,
+    memberTypeUpdate: MemberTypeUpdate, options?: RequestInit): Promise<MemberTypeStatus> => {
+
+  return customFetch<MemberTypeStatus>(getUpdateMemberTypeUrl(collegeId,userId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(memberTypeUpdate)
+  }
+);}
+
+
+
+
+export const getUpdateMemberTypeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMemberType>>, TError,{collegeId: number;userId: string;data: BodyType<MemberTypeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateMemberType>>, TError,{collegeId: number;userId: string;data: BodyType<MemberTypeUpdate>}, TContext> => {
+
+const mutationKey = ['updateMemberType'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateMemberType>>, {collegeId: number;userId: string;data: BodyType<MemberTypeUpdate>}> = (props) => {
+          const {collegeId,userId,data} = props ?? {};
+
+          return  updateMemberType(collegeId,userId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateMemberTypeMutationResult = NonNullable<Awaited<ReturnType<typeof updateMemberType>>>
+    export type UpdateMemberTypeMutationBody = BodyType<MemberTypeUpdate>
+    export type UpdateMemberTypeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Request or set a member identity type (self-request verified for STUDENT; College Head sets others)
+ */
+export const useUpdateMemberType = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMemberType>>, TError,{collegeId: number;userId: string;data: BodyType<MemberTypeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateMemberType>>,
+        TError,
+        {collegeId: number;userId: string;data: BodyType<MemberTypeUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateMemberTypeMutationOptions(options));
+    }
+
+export const getVerifyMemberTypeUrl = (collegeId: number,
+    userId: string,) => {
+
+
+
+
+  return `/api/colleges/${collegeId}/members/${userId}/verify`
+}
+
+/**
+ * @summary Verify, reject or suspend an identity claim (College Head)
+ */
+export const verifyMemberType = async (collegeId: number,
+    userId: string,
+    verifyMemberTypeBody: VerifyMemberTypeBody, options?: RequestInit): Promise<MemberTypeStatus> => {
+
+  return customFetch<MemberTypeStatus>(getVerifyMemberTypeUrl(collegeId,userId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(verifyMemberTypeBody)
+  }
+);}
+
+
+
+
+export const getVerifyMemberTypeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyMemberType>>, TError,{collegeId: number;userId: string;data: BodyType<VerifyMemberTypeBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyMemberType>>, TError,{collegeId: number;userId: string;data: BodyType<VerifyMemberTypeBody>}, TContext> => {
+
+const mutationKey = ['verifyMemberType'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyMemberType>>, {collegeId: number;userId: string;data: BodyType<VerifyMemberTypeBody>}> = (props) => {
+          const {collegeId,userId,data} = props ?? {};
+
+          return  verifyMemberType(collegeId,userId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyMemberTypeMutationResult = NonNullable<Awaited<ReturnType<typeof verifyMemberType>>>
+    export type VerifyMemberTypeMutationBody = BodyType<VerifyMemberTypeBody>
+    export type VerifyMemberTypeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Verify, reject or suspend an identity claim (College Head)
+ */
+export const useVerifyMemberType = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyMemberType>>, TError,{collegeId: number;userId: string;data: BodyType<VerifyMemberTypeBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof verifyMemberType>>,
+        TError,
+        {collegeId: number;userId: string;data: BodyType<VerifyMemberTypeBody>},
+        TContext
+      > => {
+      return useMutation(getVerifyMemberTypeMutationOptions(options));
+    }
+
+export const getGetCollegeRolesCatalogUrl = (collegeId: number,) => {
+
+
+
+
+  return `/api/colleges/${collegeId}/roles-catalog`
+}
+
+/**
+ * @summary Permission catalog and built-in role templates
+ */
+export const getCollegeRolesCatalog = async (collegeId: number, options?: RequestInit): Promise<RolesCatalog> => {
+
+  return customFetch<RolesCatalog>(getGetCollegeRolesCatalogUrl(collegeId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCollegeRolesCatalogQueryKey = (collegeId: number,) => {
+    return [
+    `/api/colleges/${collegeId}/roles-catalog`
+    ] as const;
+    }
+
+
+export const getGetCollegeRolesCatalogQueryOptions = <TData = Awaited<ReturnType<typeof getCollegeRolesCatalog>>, TError = ErrorType<unknown>>(collegeId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCollegeRolesCatalog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCollegeRolesCatalogQueryKey(collegeId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCollegeRolesCatalog>>> = ({ signal }) => getCollegeRolesCatalog(collegeId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: collegeId !== null && collegeId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCollegeRolesCatalog>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCollegeRolesCatalogQueryResult = NonNullable<Awaited<ReturnType<typeof getCollegeRolesCatalog>>>
+export type GetCollegeRolesCatalogQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Permission catalog and built-in role templates
+ */
+
+export function useGetCollegeRolesCatalog<TData = Awaited<ReturnType<typeof getCollegeRolesCatalog>>, TError = ErrorType<unknown>>(
+ collegeId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCollegeRolesCatalog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCollegeRolesCatalogQueryOptions(collegeId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListCollegeRolesUrl = (collegeId: number,) => {
+
+
+
+
+  return `/api/colleges/${collegeId}/roles`
+}
+
+/**
+ * @summary List college roles with permissions and member counts
+ */
+export const listCollegeRoles = async (collegeId: number, options?: RequestInit): Promise<CollegeRole[]> => {
+
+  return customFetch<CollegeRole[]>(getListCollegeRolesUrl(collegeId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCollegeRolesQueryKey = (collegeId: number,) => {
+    return [
+    `/api/colleges/${collegeId}/roles`
+    ] as const;
+    }
+
+
+export const getListCollegeRolesQueryOptions = <TData = Awaited<ReturnType<typeof listCollegeRoles>>, TError = ErrorType<unknown>>(collegeId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCollegeRoles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCollegeRolesQueryKey(collegeId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCollegeRoles>>> = ({ signal }) => listCollegeRoles(collegeId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: collegeId !== null && collegeId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCollegeRoles>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCollegeRolesQueryResult = NonNullable<Awaited<ReturnType<typeof listCollegeRoles>>>
+export type ListCollegeRolesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List college roles with permissions and member counts
+ */
+
+export function useListCollegeRoles<TData = Awaited<ReturnType<typeof listCollegeRoles>>, TError = ErrorType<unknown>>(
+ collegeId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCollegeRoles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCollegeRolesQueryOptions(collegeId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCollegeRoleUrl = (collegeId: number,) => {
+
+
+
+
+  return `/api/colleges/${collegeId}/roles`
+}
+
+/**
+ * @summary Create a custom role (College Head, hierarchy-guarded)
+ */
+export const createCollegeRole = async (collegeId: number,
+    collegeRoleInput: CollegeRoleInput, options?: RequestInit): Promise<CollegeRole> => {
+
+  return customFetch<CollegeRole>(getCreateCollegeRoleUrl(collegeId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(collegeRoleInput)
+  }
+);}
+
+
+
+
+export const getCreateCollegeRoleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCollegeRole>>, TError,{collegeId: number;data: BodyType<CollegeRoleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCollegeRole>>, TError,{collegeId: number;data: BodyType<CollegeRoleInput>}, TContext> => {
+
+const mutationKey = ['createCollegeRole'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCollegeRole>>, {collegeId: number;data: BodyType<CollegeRoleInput>}> = (props) => {
+          const {collegeId,data} = props ?? {};
+
+          return  createCollegeRole(collegeId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCollegeRoleMutationResult = NonNullable<Awaited<ReturnType<typeof createCollegeRole>>>
+    export type CreateCollegeRoleMutationBody = BodyType<CollegeRoleInput>
+    export type CreateCollegeRoleMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a custom role (College Head, hierarchy-guarded)
+ */
+export const useCreateCollegeRole = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCollegeRole>>, TError,{collegeId: number;data: BodyType<CollegeRoleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCollegeRole>>,
+        TError,
+        {collegeId: number;data: BodyType<CollegeRoleInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCollegeRoleMutationOptions(options));
+    }
+
+export const getSeedCollegeRolesUrl = (collegeId: number,) => {
+
+
+
+
+  return `/api/colleges/${collegeId}/roles/seed`
+}
+
+/**
+ * @summary Seed built-in system roles (College Head)
+ */
+export const seedCollegeRoles = async (collegeId: number, options?: RequestInit): Promise<CollegeRole[]> => {
+
+  return customFetch<CollegeRole[]>(getSeedCollegeRolesUrl(collegeId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getSeedCollegeRolesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof seedCollegeRoles>>, TError,{collegeId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof seedCollegeRoles>>, TError,{collegeId: number}, TContext> => {
+
+const mutationKey = ['seedCollegeRoles'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof seedCollegeRoles>>, {collegeId: number}> = (props) => {
+          const {collegeId} = props ?? {};
+
+          return  seedCollegeRoles(collegeId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SeedCollegeRolesMutationResult = NonNullable<Awaited<ReturnType<typeof seedCollegeRoles>>>
+
+    export type SeedCollegeRolesMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Seed built-in system roles (College Head)
+ */
+export const useSeedCollegeRoles = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof seedCollegeRoles>>, TError,{collegeId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof seedCollegeRoles>>,
+        TError,
+        {collegeId: number},
+        TContext
+      > => {
+      return useMutation(getSeedCollegeRolesMutationOptions(options));
+    }
+
+export const getUpdateCollegeRoleUrl = (collegeId: number,
+    roleId: number,) => {
+
+
+
+
+  return `/api/colleges/${collegeId}/roles/${roleId}`
+}
+
+/**
+ * @summary Update a role (College Head; system name/type/priority locked)
+ */
+export const updateCollegeRole = async (collegeId: number,
+    roleId: number,
+    collegeRoleUpdate: CollegeRoleUpdate, options?: RequestInit): Promise<CollegeRole> => {
+
+  return customFetch<CollegeRole>(getUpdateCollegeRoleUrl(collegeId,roleId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(collegeRoleUpdate)
+  }
+);}
+
+
+
+
+export const getUpdateCollegeRoleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCollegeRole>>, TError,{collegeId: number;roleId: number;data: BodyType<CollegeRoleUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCollegeRole>>, TError,{collegeId: number;roleId: number;data: BodyType<CollegeRoleUpdate>}, TContext> => {
+
+const mutationKey = ['updateCollegeRole'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCollegeRole>>, {collegeId: number;roleId: number;data: BodyType<CollegeRoleUpdate>}> = (props) => {
+          const {collegeId,roleId,data} = props ?? {};
+
+          return  updateCollegeRole(collegeId,roleId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCollegeRoleMutationResult = NonNullable<Awaited<ReturnType<typeof updateCollegeRole>>>
+    export type UpdateCollegeRoleMutationBody = BodyType<CollegeRoleUpdate>
+    export type UpdateCollegeRoleMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a role (College Head; system name/type/priority locked)
+ */
+export const useUpdateCollegeRole = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCollegeRole>>, TError,{collegeId: number;roleId: number;data: BodyType<CollegeRoleUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCollegeRole>>,
+        TError,
+        {collegeId: number;roleId: number;data: BodyType<CollegeRoleUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCollegeRoleMutationOptions(options));
+    }
+
+export const getDeleteCollegeRoleUrl = (collegeId: number,
+    roleId: number,) => {
+
+
+
+
+  return `/api/colleges/${collegeId}/roles/${roleId}`
+}
+
+/**
+ * @summary Delete a custom role (system roles protected)
+ */
+export const deleteCollegeRole = async (collegeId: number,
+    roleId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteCollegeRoleUrl(collegeId,roleId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteCollegeRoleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCollegeRole>>, TError,{collegeId: number;roleId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCollegeRole>>, TError,{collegeId: number;roleId: number}, TContext> => {
+
+const mutationKey = ['deleteCollegeRole'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCollegeRole>>, {collegeId: number;roleId: number}> = (props) => {
+          const {collegeId,roleId} = props ?? {};
+
+          return  deleteCollegeRole(collegeId,roleId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteCollegeRoleMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCollegeRole>>>
+
+    export type DeleteCollegeRoleMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a custom role (system roles protected)
+ */
+export const useDeleteCollegeRole = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCollegeRole>>, TError,{collegeId: number;roleId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteCollegeRole>>,
+        TError,
+        {collegeId: number;roleId: number},
+        TContext
+      > => {
+      return useMutation(getDeleteCollegeRoleMutationOptions(options));
+    }
+
+export const getListRoleAssignmentsUrl = (collegeId: number,
+    roleId: number,) => {
+
+
+
+
+  return `/api/colleges/${collegeId}/roles/${roleId}/assignments`
+}
+
+/**
+ * @summary List role assignments (College Head)
+ */
+export const listRoleAssignments = async (collegeId: number,
+    roleId: number, options?: RequestInit): Promise<RoleAssignment[]> => {
+
+  return customFetch<RoleAssignment[]>(getListRoleAssignmentsUrl(collegeId,roleId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRoleAssignmentsQueryKey = (collegeId: number,
+    roleId: number,) => {
+    return [
+    `/api/colleges/${collegeId}/roles/${roleId}/assignments`
+    ] as const;
+    }
+
+
+export const getListRoleAssignmentsQueryOptions = <TData = Awaited<ReturnType<typeof listRoleAssignments>>, TError = ErrorType<unknown>>(collegeId: number,
+    roleId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRoleAssignments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRoleAssignmentsQueryKey(collegeId,roleId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRoleAssignments>>> = ({ signal }) => listRoleAssignments(collegeId,roleId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: collegeId !== null && collegeId !== undefined && roleId !== null && roleId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRoleAssignments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRoleAssignmentsQueryResult = NonNullable<Awaited<ReturnType<typeof listRoleAssignments>>>
+export type ListRoleAssignmentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List role assignments (College Head)
+ */
+
+export function useListRoleAssignments<TData = Awaited<ReturnType<typeof listRoleAssignments>>, TError = ErrorType<unknown>>(
+ collegeId: number,
+    roleId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRoleAssignments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRoleAssignmentsQueryOptions(collegeId,roleId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAssignCollegeRoleUrl = (collegeId: number,
+    roleId: number,) => {
+
+
+
+
+  return `/api/colleges/${collegeId}/roles/${roleId}/assignments`
+}
+
+/**
+ * @summary Assign a role to a member (College Head, hierarchy-guarded)
+ */
+export const assignCollegeRole = async (collegeId: number,
+    roleId: number,
+    assignCollegeRoleBody: AssignCollegeRoleBody, options?: RequestInit): Promise<RoleAssignment> => {
+
+  return customFetch<RoleAssignment>(getAssignCollegeRoleUrl(collegeId,roleId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(assignCollegeRoleBody)
+  }
+);}
+
+
+
+
+export const getAssignCollegeRoleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignCollegeRole>>, TError,{collegeId: number;roleId: number;data: BodyType<AssignCollegeRoleBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof assignCollegeRole>>, TError,{collegeId: number;roleId: number;data: BodyType<AssignCollegeRoleBody>}, TContext> => {
+
+const mutationKey = ['assignCollegeRole'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof assignCollegeRole>>, {collegeId: number;roleId: number;data: BodyType<AssignCollegeRoleBody>}> = (props) => {
+          const {collegeId,roleId,data} = props ?? {};
+
+          return  assignCollegeRole(collegeId,roleId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AssignCollegeRoleMutationResult = NonNullable<Awaited<ReturnType<typeof assignCollegeRole>>>
+    export type AssignCollegeRoleMutationBody = BodyType<AssignCollegeRoleBody>
+    export type AssignCollegeRoleMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Assign a role to a member (College Head, hierarchy-guarded)
+ */
+export const useAssignCollegeRole = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignCollegeRole>>, TError,{collegeId: number;roleId: number;data: BodyType<AssignCollegeRoleBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof assignCollegeRole>>,
+        TError,
+        {collegeId: number;roleId: number;data: BodyType<AssignCollegeRoleBody>},
+        TContext
+      > => {
+      return useMutation(getAssignCollegeRoleMutationOptions(options));
+    }
+
+export const getUnassignCollegeRoleUrl = (collegeId: number,
+    roleId: number,
+    assignmentId: number,) => {
+
+
+
+
+  return `/api/colleges/${collegeId}/roles/${roleId}/assignments/${assignmentId}`
+}
+
+/**
+ * @summary Remove a role assignment (last College Head protected)
+ */
+export const unassignCollegeRole = async (collegeId: number,
+    roleId: number,
+    assignmentId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getUnassignCollegeRoleUrl(collegeId,roleId,assignmentId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getUnassignCollegeRoleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unassignCollegeRole>>, TError,{collegeId: number;roleId: number;assignmentId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unassignCollegeRole>>, TError,{collegeId: number;roleId: number;assignmentId: number}, TContext> => {
+
+const mutationKey = ['unassignCollegeRole'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unassignCollegeRole>>, {collegeId: number;roleId: number;assignmentId: number}> = (props) => {
+          const {collegeId,roleId,assignmentId} = props ?? {};
+
+          return  unassignCollegeRole(collegeId,roleId,assignmentId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnassignCollegeRoleMutationResult = NonNullable<Awaited<ReturnType<typeof unassignCollegeRole>>>
+
+    export type UnassignCollegeRoleMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Remove a role assignment (last College Head protected)
+ */
+export const useUnassignCollegeRole = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unassignCollegeRole>>, TError,{collegeId: number;roleId: number;assignmentId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unassignCollegeRole>>,
+        TError,
+        {collegeId: number;roleId: number;assignmentId: number},
+        TContext
+      > => {
+      return useMutation(getUnassignCollegeRoleMutationOptions(options));
+    }
+
+export const getGetCollegeSettingsUrl = (collegeId: number,) => {
+
+
+
+
+  return `/api/colleges/${collegeId}/settings`
+}
+
+/**
+ * @summary Get college governance settings (College Head)
+ */
+export const getCollegeSettings = async (collegeId: number, options?: RequestInit): Promise<CollegeSettings> => {
+
+  return customFetch<CollegeSettings>(getGetCollegeSettingsUrl(collegeId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCollegeSettingsQueryKey = (collegeId: number,) => {
+    return [
+    `/api/colleges/${collegeId}/settings`
+    ] as const;
+    }
+
+
+export const getGetCollegeSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getCollegeSettings>>, TError = ErrorType<unknown>>(collegeId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCollegeSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCollegeSettingsQueryKey(collegeId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCollegeSettings>>> = ({ signal }) => getCollegeSettings(collegeId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: collegeId !== null && collegeId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCollegeSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCollegeSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getCollegeSettings>>>
+export type GetCollegeSettingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get college governance settings (College Head)
+ */
+
+export function useGetCollegeSettings<TData = Awaited<ReturnType<typeof getCollegeSettings>>, TError = ErrorType<unknown>>(
+ collegeId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCollegeSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCollegeSettingsQueryOptions(collegeId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateCollegeSettingsUrl = (collegeId: number,) => {
+
+
+
+
+  return `/api/colleges/${collegeId}/settings`
+}
+
+/**
+ * @summary Update college governance settings (College Head)
+ */
+export const updateCollegeSettings = async (collegeId: number,
+    collegeSettingsInput: CollegeSettingsInput, options?: RequestInit): Promise<CollegeSettings> => {
+
+  return customFetch<CollegeSettings>(getUpdateCollegeSettingsUrl(collegeId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(collegeSettingsInput)
+  }
+);}
+
+
+
+
+export const getUpdateCollegeSettingsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCollegeSettings>>, TError,{collegeId: number;data: BodyType<CollegeSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCollegeSettings>>, TError,{collegeId: number;data: BodyType<CollegeSettingsInput>}, TContext> => {
+
+const mutationKey = ['updateCollegeSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCollegeSettings>>, {collegeId: number;data: BodyType<CollegeSettingsInput>}> = (props) => {
+          const {collegeId,data} = props ?? {};
+
+          return  updateCollegeSettings(collegeId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCollegeSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateCollegeSettings>>>
+    export type UpdateCollegeSettingsMutationBody = BodyType<CollegeSettingsInput>
+    export type UpdateCollegeSettingsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update college governance settings (College Head)
+ */
+export const useUpdateCollegeSettings = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCollegeSettings>>, TError,{collegeId: number;data: BodyType<CollegeSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCollegeSettings>>,
+        TError,
+        {collegeId: number;data: BodyType<CollegeSettingsInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateCollegeSettingsMutationOptions(options));
     }
 
 export const getGetCollegeMeetingsUrl = (collegeId: number,) => {

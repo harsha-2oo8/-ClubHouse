@@ -22,6 +22,13 @@
       "when": 1789903232527,
       "tag": "0002_loose_hiroim",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791292539002,
+      "tag": "0003_bitter_prodigy",
+      "breakpoints": true
     }
   ]
 }

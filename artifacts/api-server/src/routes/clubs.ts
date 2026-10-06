@@ -13,6 +13,7 @@ import { requireAuth } from "../middlewares/auth";
 import { getParam } from "../lib/params";
 import { strictWriteLimit } from "../lib/rateLimit";
 import { canDeleteClub, canDeleteClubManagementEvent, isAdmin } from "../lib/policy";
+import { collegeCreateAllowed } from "../lib/collegeRbac";
 import { recordAuditLog } from "../lib/audit";
 import { deleteObject, isGcsConfigured, objectNameFromPath } from "../lib/gcsStorage";
 
@@ -119,6 +120,10 @@ router.post("/", requireAuth, strictWriteLimit(), async (req: Request, res: Resp
   if (!userId || typeof name !== "string" || name.trim().length < 2 ||
       typeof description !== "string" || description.trim().length < 10) {
     res.status(400).json({ error: "name and description are required" });
+    return;
+  }
+  if (!(await collegeCreateAllowed(userId, college.id, "club.create"))) {
+    res.status(403).json({ error: "This college does not allow students to create clubs." });
     return;
   }
   const [club] = await db.insert(clubsTable).values({

@@ -407,6 +407,338 @@ paths:
               schema:
                 $ref: "#/components/schemas/CollegeMember"
 
+  /colleges/{collegeId}/members/{userId}/type:
+    patch:
+      operationId: updateMemberType
+      tags: [colleges]
+      summary: Request or set a member identity type (self-request verified for STUDENT; College Head sets others)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberTypeUpdate"
+      responses:
+        "200":
+          description: Member type updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberTypeStatus"
+
+  /colleges/{collegeId}/members/{userId}/verify:
+    patch:
+      operationId: verifyMemberType
+      tags: [colleges]
+      summary: Verify, reject or suspend an identity claim (College Head)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [VERIFIED, REJECTED, SUSPENDED] }
+      responses:
+        "200":
+          description: Verification updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberTypeStatus"
+
+  /colleges/{collegeId}/roles-catalog:
+    get:
+      operationId: getCollegeRolesCatalog
+      tags: [colleges]
+      summary: Permission catalog and built-in role templates
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Catalog
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RolesCatalog"
+
+  /colleges/{collegeId}/roles:
+    get:
+      operationId: listCollegeRoles
+      tags: [colleges]
+      summary: List college roles with permissions and member counts
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CollegeRole"
+    post:
+      operationId: createCollegeRole
+      tags: [colleges]
+      summary: Create a custom role (College Head, hierarchy-guarded)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CollegeRoleInput"
+      responses:
+        "201":
+          description: Role created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollegeRole"
+
+  /colleges/{collegeId}/roles/seed:
+    post:
+      operationId: seedCollegeRoles
+      tags: [colleges]
+      summary: Seed built-in system roles (College Head)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CollegeRole"
+
+  /colleges/{collegeId}/roles/{roleId}:
+    patch:
+      operationId: updateCollegeRole
+      tags: [colleges]
+      summary: Update a role (College Head; system name/type/priority locked)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CollegeRoleUpdate"
+      responses:
+        "200":
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollegeRole"
+    delete:
+      operationId: deleteCollegeRole
+      tags: [colleges]
+      summary: Delete a custom role (system roles protected)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /colleges/{collegeId}/roles/{roleId}/assignments:
+    get:
+      operationId: listRoleAssignments
+      tags: [colleges]
+      summary: List role assignments (College Head)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RoleAssignment"
+    post:
+      operationId: assignCollegeRole
+      tags: [colleges]
+      summary: Assign a role to a member (College Head, hierarchy-guarded)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clerkId]
+              properties:
+                clerkId: { type: string }
+      responses:
+        "201":
+          description: Assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleAssignment"
+
+  /colleges/{collegeId}/roles/{roleId}/assignments/{assignmentId}:
+    delete:
+      operationId: unassignCollegeRole
+      tags: [colleges]
+      summary: Remove a role assignment (last College Head protected)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assignmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+
+  /colleges/{collegeId}/settings:
+    get:
+      operationId: getCollegeSettings
+      tags: [colleges]
+      summary: Get college governance settings (College Head)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollegeSettings"
+    patch:
+      operationId: updateCollegeSettings
+      tags: [colleges]
+      summary: Update college governance settings (College Head)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CollegeSettingsInput"
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollegeSettings"
+
   /colleges/{collegeId}/meetings:
     get:
       operationId: getCollegeMeetings
@@ -1734,7 +2066,121 @@ components:
         semester:  { type: integer }
         role:      { type: string, enum: [member, moderator, admin] }
         customRole: { type: ["string", "null"] }
+        memberType: { type: string, enum: [STUDENT, TEACHER, STAFF, TRUSTEE, COLLEGE_HEAD] }
+        memberStatus: { type: string, enum: [VERIFIED, PENDING, REJECTED, SUSPENDED] }
+        assignedRoles:
+          type: array
+          items:
+            type: object
+            required: [id, name, priority]
+            properties:
+              id:       { type: integer }
+              name:     { type: string }
+              priority: { type: integer }
         joinedAt:  { type: string, format: date-time }
+
+    MemberTypeUpdate:
+      type: object
+      required: [memberType]
+      properties:
+        memberType: { type: string, enum: [STUDENT, TEACHER, STAFF, TRUSTEE, COLLEGE_HEAD] }
+
+    MemberTypeStatus:
+      type: object
+      required: [clerkId, memberType, memberStatus]
+      properties:
+        clerkId:      { type: string }
+        memberType:   { type: string }
+        memberStatus: { type: string }
+
+    CollegeRole:
+      type: object
+      required: [id, collegeId, name, memberType, priority]
+      properties:
+        id:          { type: integer }
+        collegeId:   { type: integer }
+        name:        { type: string }
+        memberType:  { type: string }
+        priority:    { type: integer }
+        isSystem:    { type: boolean }
+        description: { type: ["string", "null"] }
+        permissions:
+          type: array
+          items: { type: string }
+        memberCount: { type: integer }
+        createdAt:   { type: string, format: date-time }
+
+    CollegeRoleInput:
+      type: object
+      required: [name]
+      properties:
+        name:        { type: string }
+        memberType:  { type: string, enum: [STUDENT, TEACHER, STAFF, TRUSTEE, COLLEGE_HEAD] }
+        priority:    { type: integer, minimum: 1, maximum: 999 }
+        description: { type: ["string", "null"] }
+        permissions:
+          type: array
+          items: { type: string }
+
+    CollegeRoleUpdate:
+      type: object
+      properties:
+        name:        { type: string }
+        description: { type: ["string", "null"] }
+        permissions:
+          type: array
+          items: { type: string }
+
+    RoleAssignment:
+      type: object
+      required: [roleId, clerkId]
+      properties:
+        id:        { type: integer }
+        roleId:    { type: integer }
+        collegeId: { type: integer }
+        clerkId:   { type: string }
+        userName:  { type: string }
+        createdAt: { type: string, format: date-time }
+
+    RolesCatalog:
+      type: object
+      properties:
+        permissions:
+          type: array
+          items:
+            type: object
+            required: [key, scope, label, description]
+            properties:
+              key:         { type: string }
+              scope:       { type: string }
+              label:       { type: string }
+              description: { type: string }
+        templates:
+          type: array
+          items:
+            type: object
+            properties:
+              name:        { type: string }
+              memberType:  { type: string }
+              priority:    { type: integer }
+              description: { type: string }
+              permissions:
+                type: array
+                items: { type: string }
+
+    CollegeSettings:
+      type: object
+      required: [collegeId]
+      properties:
+        collegeId:          { type: integer }
+        allowStudentCreate:  { type: boolean }
+        openJoin:            { type: boolean }
+
+    CollegeSettingsInput:
+      type: object
+      properties:
+        allowStudentCreate: { type: boolean }
+        openJoin:           { type: boolean }
 
     CollegeJoinRequest:
       type: object
