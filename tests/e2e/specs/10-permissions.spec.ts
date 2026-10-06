@@ -71,6 +71,22 @@ test.describe("permissions (negative)", () => {
     expect([403, 404]).toContain(res.status);
   });
 
+  test("platform admin can decide applications (override)", async ({ page, baseURL }) => {
+    const apiURL = process.env.E2E_API_URL;
+    test.skip(!apiURL, "E2E_API_URL required");
+    await signInAs(page, baseURL!, await clerkIdByEmail(ROLES.adminEmail));
+    const projectId = await findProjectId(E2E.projectAlpha);
+    // Any pending application on Alpha (or none left — then create one via B first).
+    const apps = await apiAs(page, apiURL!, "GET", `/api/projects/${projectId}/applications`);
+    expect(apps.status).toBe(200);
+    const pending = ((apps.json as Array<{ id: number; status: string }>) ?? []).filter((a) => a.status === "pending");
+    test.skip(pending.length === 0, "no pending application to decide");
+    const decided = await apiAs(page, apiURL!, "PATCH", `/api/projects/${projectId}/applications/${pending[0].id}`, {
+      status: "approved",
+    });
+    expect(decided.status).toBe(200);
+  });
+
   test("deleted resources return 404 and cannot be modified", async ({ page, baseURL }) => {
     const apiURL = process.env.E2E_API_URL;
     test.skip(!apiURL, "E2E_API_URL required");

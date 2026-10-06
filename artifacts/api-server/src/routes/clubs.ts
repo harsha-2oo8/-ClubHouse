@@ -12,7 +12,7 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { getParam } from "../lib/params";
 import { strictWriteLimit } from "../lib/rateLimit";
-import { canDeleteClub, canDeleteClubManagementEvent } from "../lib/policy";
+import { canDeleteClub, canDeleteClubManagementEvent, isAdmin } from "../lib/policy";
 import { recordAuditLog } from "../lib/audit";
 import { deleteObject, isGcsConfigured, objectNameFromPath } from "../lib/gcsStorage";
 
@@ -84,7 +84,12 @@ async function formatClub(club: typeof clubsTable.$inferSelect, includeDetails =
 async function getManagedClub(req: Request, res: Response) {
   const { userId } = getAuth(req);
   const id = Number(getParam(req, "clubId"));
-  if (!Number.isInteger(id) || !userId || !(await canManageClub(id, userId))) {
+  if (!Number.isInteger(id) || !userId) {
+    res.status(403).json({ error: "Club administrator access required" });
+    return null;
+  }
+  // Club creator/owner, or platform admin override.
+  if (!(await canManageClub(id, userId)) && !(await isAdmin(userId))) {
     res.status(403).json({ error: "Club administrator access required" });
     return null;
   }

@@ -5,7 +5,7 @@ import { eq, and, ilike, sql, or } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { getParam, getLimit } from "../lib/params";
 import { strictWriteLimit } from "../lib/rateLimit";
-import { canDeleteProject, canDeleteProjectEvent } from "../lib/policy";
+import { canDeleteProject, canDeleteProjectEvent, isAdmin } from "../lib/policy";
 import { notificationService } from "../lib/notify";
 import { recordAuditLog } from "../lib/audit";
 
@@ -193,16 +193,17 @@ router.post("/:projectId/invites", requireAuth, strictWriteLimit(), async (req: 
     return;
   }
 
-  const project = await db.select().from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
-  if (!project.length) {
+  const projects = await db.select().from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
+  if (!projects.length) {
     res.status(404).json({ error: "Project not found" });
     return;
   }
-
-  const inviterMembership = await db.select().from(projectMembersTable)
-    .where(and(eq(projectMembersTable.projectId, projectId), eq(projectMembersTable.clerkId, userId!)))
-    .limit(1);
-  if (!inviterMembership.length || !["owner", "moderator"].includes(inviterMembership[0].role)) {
+  // Owner, project moderator member, or platform admin override.
+  const membership = await db.select().from(projectMembersTable)
+    .where(and(eq(projectMembersTable.projectId, projectId), eq(projectMembersTable.clerkId, userId!))).limit(1);
+  const callerIsAdmin = await isAdmin(userId!);
+  if (projects[0].ownerId !== userId && !callerIsAdmin &&
+      (!membership.length || !["owner", "moderator"].includes(membership[0].role))) {
     res.status(403).json({ error: "Only project owners and moderators can invite people" });
     return;
   }
@@ -229,7 +230,7 @@ router.post("/:projectId/invites", requireAuth, strictWriteLimit(), async (req: 
   await notificationService.send(
     targetUserId,
     "project_invite",
-    `You were invited to join "${project[0].title}"`,
+    `You were invited to join "${projects[0].title}"`,
     `/projects/${projectId}?invite=1`,
   );
 
@@ -303,16 +304,33 @@ router.get("/:projectId/applications", requireAuth, async (req: Request, res: Re
   res.json(enriched);
 });
 
-// Update application
+// Update application — project owner or platform admin override.
 router.patch("/:projectId/applications/:applicationId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
   const projectId = parseInt(getParam(req, "projectId"));
   const applicationId = parseInt(getParam(req, "applicationId"));
   const { status } = req.body;
 
+  if (status !== "approved" && status !== "rejected") {
+    res.status(400).json({ error: 'status must be "approved" or "rejected"' });
+    return;
+  }
+
   const projects = await db.select().from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
-  if (!projects.length || projects[0].ownerId !== userId) {
-    res.status(403).json({ error: "Not authorized" });
+  if (!projects.length) {
+    res.status(404).json({ error: "Project not found" });
+    return;
+  }
+  if (projects[0].ownerId !== userId && !(await isAdmin(userId!))) {
+    res.status(403).json({ error: "Only the project owner or an admin can decide applications." });
+    return;
+  }
+
+  const target = await db.select().from(projectApplicationsTable)
+    .where(and(eq(projectApplicationsTable.id, applicationId), eq(projectApplicationsTable.projectId, projectId)))
+    .limit(1);
+  if (!target.length) {
+    res.status(404).json({ error: "Application not found for this project" });
     return;
   }
 
@@ -320,6 +338,15 @@ router.patch("/:projectId/applications/:applicationId", requireAuth, strictWrite
     .set({ status })
     .where(eq(projectApplicationsTable.id, applicationId))
     .returning();
+
+  await recordAuditLog(req, {
+    action: status === "approved" ? "APPLICATION_APPROVED" : "APPLICATION_REJECTED",
+    entityType: "project_application",
+    entityId: applicationId,
+    before: target[0],
+    after: updated,
+    metadata: { projectId },
+  });
 
   if (status === "approved") {
     const existing = await db.select().from(projectMembersTable)
