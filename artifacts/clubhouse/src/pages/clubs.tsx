@@ -39,7 +39,10 @@ function assetUrl(path?: string | null) {
 }
 
 function UploadButton({ accept, label, onUploaded }: { accept: string; label: string; onUploaded: (path: string, name: string) => void }) {
-  const { uploadFile, isUploading } = useUpload();
+  // Uploads must target the API origin, not the Vercel static host:
+  // same-origin /api/* on Vercel answers 405 (no such route exists there).
+  const apiBase = appConfig.apiUrl.replace(/\/+$/, "");
+  const { uploadFile, isUploading } = useUpload({ basePath: `${apiBase}/api/storage` });
   const { toast } = useToast();
   return (
     <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted">
