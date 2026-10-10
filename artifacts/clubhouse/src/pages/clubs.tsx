@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useRoute, useLocation } from "wouter";
 import { useAuth } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -40,15 +40,38 @@ function assetUrl(path?: string | null) {
   return `${base}/api/storage/${routePath}`;
 }
 
-function UploadButton({ accept, label, onUploaded }: { accept: string; label: string; onUploaded: (path: string, name: string) => void }) {
+function UploadButton({ accept, label, onUploaded, currentUrl }: {
+  accept: string;
+  label: string;
+  onUploaded: (path: string, name: string) => void;
+  /** Already-saved image URL to preview (e.g. existing logo); hidden once a new file is picked. */
+  currentUrl?: string | null;
+}) {
   // Uploads must target the API origin, not the Vercel static host:
   // same-origin /api/* on Vercel answers 405 (no such route exists there).
   const apiBase = appConfig.apiUrl.replace(/\/+$/, "");
   const { uploadFile, isUploading } = useUpload({ basePath: `${apiBase}/api/storage` });
   const { toast } = useToast();
+  const [preview, setPreview] = useState<{ url: string; type: string; name: string } | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview.url);
+    };
+  }, [preview]);
+
+  const shownImage = preview && preview.type.startsWith("image/") ? preview.url : (!preview && currentUrl ? currentUrl : null);
+
   return (
     <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted">
-      <ImagePlus className="h-4 w-4" /> {isUploading ? "Uploading…" : label}
+      {shownImage ? (
+        <img src={shownImage} alt="" className="h-8 w-8 rounded-md object-cover" data-testid="upload-preview" />
+      ) : (
+        <ImagePlus className="h-4 w-4" />
+      )}
+      <span className="min-w-0">
+        {isUploading ? "Uploading…" : preview ? preview.name : label}
+      </span>
       <input
         className="hidden"
         type="file"
@@ -57,10 +80,13 @@ function UploadButton({ accept, label, onUploaded }: { accept: string; label: st
         onChange={async (event) => {
           const file = event.target.files?.[0];
           if (!file) return;
+          if (preview) URL.revokeObjectURL(preview.url);
+          setPreview({ url: URL.createObjectURL(file), type: file.type, name: file.name });
           const uploaded = await uploadFile(file);
           if (uploaded) {
             onUploaded(uploaded.objectPath, file.name);
           } else {
+            setPreview(null);
             toast({ title: "Upload failed", description: "Check the file type/size, or ask an admin whether uploads are configured.", variant: "destructive" });
           }
           event.target.value = "";
@@ -398,7 +424,7 @@ export function ClubAdmin() {
       <div className="mx-auto max-w-5xl p-6">
         <div className="mb-6 flex items-center justify-between"><div><Link href={`/clubs/${id}`} className="mb-2 inline-flex items-center gap-2 text-sm text-muted-foreground"><ArrowLeft className="h-4 w-4" /> Back to club</Link><h1 className="text-3xl font-bold">Manage {club.name}</h1></div><Badge variant="secondary" className="gap-1"><Settings className="h-3.5 w-3.5" /> Admin</Badge></div>
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card><CardHeader><CardTitle>Club profile</CardTitle></CardHeader><CardContent className="space-y-4"><Input placeholder={club.name} value={name} onChange={(e) => setName(e.target.value)} /><Textarea placeholder={club.description} value={description} onChange={(e) => setDescription(e.target.value)} rows={5} /><div className="flex flex-wrap gap-2"><UploadButton accept="image/png,image/jpeg,image/webp" label={logoPath || club.logoPath ? "Replace logo" : "Upload logo"} onUploaded={(path) => setLogoPath(path)} /><UploadButton accept=".pdf,image/png,image/jpeg" label={brochureName || club.brochureName || "Upload brochure"} onUploaded={(path, fileName) => { setBrochurePath(path); setBrochureName(fileName); }} /></div><Button onClick={saveProfile} disabled={updateClub.isPending}>Save profile</Button></CardContent></Card>
+          <Card><CardHeader><CardTitle>Club profile</CardTitle></CardHeader><CardContent className="space-y-4"><Input placeholder={club.name} value={name} onChange={(e) => setName(e.target.value)} /><Textarea placeholder={club.description} value={description} onChange={(e) => setDescription(e.target.value)} rows={5} /><div className="flex flex-wrap gap-2"><UploadButton accept="image/png,image/jpeg,image/webp" label={logoPath || club.logoPath ? "Replace logo" : "Upload logo"} currentUrl={!logoPath ? assetUrl(club.logoPath) : null} onUploaded={(path) => setLogoPath(path)} /><UploadButton accept=".pdf,image/png,image/jpeg" label={brochureName || club.brochureName || "Upload brochure"} currentUrl={!brochurePath ? assetUrl(club.brochurePath) : null} onUploaded={(path, fileName) => { setBrochurePath(path); setBrochureName(fileName); }} /></div><Button onClick={saveProfile} disabled={updateClub.isPending}>Save profile</Button></CardContent></Card>
           <Card><CardHeader><CardTitle>Team members</CardTitle></CardHeader><CardContent><form onSubmit={saveMember} className="mb-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><Input placeholder="Name" value={memberName} onChange={(e) => setMemberName(e.target.value)} required /><Input placeholder="Role" value={memberRole} onChange={(e) => setMemberRole(e.target.value)} required /><Button type="submit" size="icon" aria-label="Add team member"><Plus className="h-4 w-4" /></Button></form><div className="space-y-2">{(club.members ?? []).map((member: ClubMember) => <div key={member.id} className="flex items-center justify-between rounded-lg border p-3"><div><p className="font-medium">{member.name}</p><p className="text-sm text-muted-foreground">{member.role}</p></div><Button variant="ghost" size="icon" onClick={async () => { await deleteMember.mutateAsync({ clubId: id, memberId: member.id }); refresh(); }} aria-label={`Remove ${member.name}`}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>)}</div></CardContent></Card>
           <Card><CardHeader><CardTitle>Join requests {typedJoinRequests.length > 0 && <Badge className="ml-2">{typedJoinRequests.length}</Badge>}</CardTitle></CardHeader><CardContent>{typedJoinRequests.length === 0 ? <p className="text-sm text-muted-foreground">No pending requests.</p> : <div className="space-y-2">{typedJoinRequests.map((r) => <div key={String(r.id)} className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border p-3" data-testid={`card-club-join-${r.id}`}><div className="flex-1 min-w-0"><p className="font-medium text-sm" data-testid={`text-club-request-name-${r.id}`}>{String(r.userName || "Student")}</p></div><div className="flex gap-2 flex-shrink-0"><Button size="sm" className="gap-1.5 bg-green-600 hover:bg-green-700" onClick={() => void handleJoinRequest(Number(r.id), "approved")} data-testid={`button-approve-club-join-${r.id}`}>Approve</Button><Button size="sm" variant="outline" onClick={() => void handleJoinRequest(Number(r.id), "rejected")} data-testid={`button-reject-club-join-${r.id}`}>Reject</Button></div></div>)}</div>}</CardContent></Card>
           <Card className="lg:col-span-2"><CardHeader><CardTitle>Events</CardTitle></CardHeader><CardContent><form onSubmit={saveEvent} className="grid gap-3 md:grid-cols-2"><Input placeholder="Event title" value={eventTitle} onChange={(e) => setEventTitle(e.target.value)} required /><Input type="datetime-local" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required /><Textarea className="md:col-span-2" placeholder="Event description (optional)" value={eventDescription} onChange={(e) => setEventDescription(e.target.value)} /><div className="flex items-center gap-3"><UploadButton accept="image/png,image/jpeg,image/webp" label={eventBanner ? "Banner uploaded" : "Upload event banner"} onUploaded={(path) => setEventBanner(path)} /><Button type="submit" disabled={addEvent.isPending} className="gap-2"><Plus className="h-4 w-4" /> Create event</Button></div></form><div className="mt-6 grid gap-3 md:grid-cols-2">{(club.events ?? []).map((event: ClubManagementEvent) => <div key={event.id} className="rounded-lg border p-4"><div className="flex justify-between gap-3"><div><p className="font-semibold">{event.title}</p><p className="text-sm text-muted-foreground">{new Date(event.scheduledAt).toLocaleString()}</p></div><div className="flex gap-1 flex-shrink-0"><Button variant="ghost" size="icon" onClick={() => startEditEvent(event)} aria-label={`Edit ${event.title}`} data-testid={`button-edit-club-event-${event.id}`}><Pencil className="h-4 w-4" /></Button><Button variant="ghost" size="icon" onClick={() => setEventToDelete(event)} aria-label={`Delete ${event.title}`} data-testid={`button-delete-club-event-${event.id}`}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></div>{event.description && <p className="mt-2 text-sm">{event.description}</p>}</div>)}</div></CardContent></Card>
