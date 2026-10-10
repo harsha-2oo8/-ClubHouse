@@ -871,7 +871,8 @@ export const CreateClubBody = zod.object({
   "description": zod.string().min(createClubBodyDescriptionMin),
   "logoPath": zod.string().nullish(),
   "brochurePath": zod.string().nullish(),
-  "brochureName": zod.string().nullish()
+  "brochureName": zod.string().nullish(),
+  "createdBy": zod.string().optional().describe('Admin-only: attribute the club to another user\'s Clerk ID. Ignored for non-admins.')
 })
 
 export const CreateClubResponse = zod.object({

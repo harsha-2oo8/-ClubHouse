@@ -404,6 +404,8 @@ export interface ClubInput {
   brochurePath?: string | null;
   /** @nullable */
   brochureName?: string | null;
+  /** Admin-only: attribute the club to another user's Clerk ID. Ignored for non-admins. */
+  createdBy?: string;
 }
 
 export interface ClubUpdate {

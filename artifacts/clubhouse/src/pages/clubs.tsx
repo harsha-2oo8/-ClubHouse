@@ -6,7 +6,7 @@ import {
   useListClubs, useGetClub, getGetClubQueryKey, getListClubsQueryKey,
   useCreateClub, useUpdateClub, useCreateClubMember, useDeleteClubMember,
   useCreateClubEvent, useUpdateClubEvent, useDeleteClubEvent, useDeleteClub,
-  useGetMyProfile, getGetMyProfileQueryKey,
+  useGetMyProfile, getGetMyProfileQueryKey, useSearchUsers, getSearchUsersQueryKey,
 } from "@workspace/api-client-react";
 import { DeleteConfirm } from "@/components/delete-confirm";
 import { ReportDialog } from "@/components/report-dialog";
@@ -114,12 +114,34 @@ export function ClubRegister() {
   const [logoPath, setLogoPath] = useState<string | null>(null);
   const [brochurePath, setBrochurePath] = useState<string | null>(null);
   const [brochureName, setBrochureName] = useState<string | null>(null);
+  const [creatorQuery, setCreatorQuery] = useState("");
+  const [creator, setCreator] = useState<{ clerkId: string; name: string } | null>(null);
+
+  const { data: profile } = useGetMyProfile({
+    query: { queryKey: getGetMyProfileQueryKey(), enabled: !!isSignedIn },
+  });
+  const isPlatformAdmin = (profile as { role?: string } | null | undefined)?.role === "admin";
+  const { data: creatorResults } = useSearchUsers(
+    { q: creatorQuery },
+    {
+      query: {
+        queryKey: getSearchUsersQueryKey({ q: creatorQuery }),
+        enabled: isPlatformAdmin && creatorQuery.trim().length >= 2 && !creator,
+      },
+    },
+  );
+  const typedCreatorResults = (creatorResults as unknown as Array<Record<string, unknown>>) ?? [];
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!isSignedIn) { toast({ title: "Sign in to register a club", variant: "destructive" }); return; }
     try {
-      const club = await createClub.mutateAsync({ data: { name, description, logoPath, brochurePath, brochureName } });
+      const club = await createClub.mutateAsync({
+        data: {
+          name, description, logoPath, brochurePath, brochureName,
+          ...(isPlatformAdmin && creator ? { createdBy: creator.clerkId } : {}),
+        },
+      });
       qc.invalidateQueries({ queryKey: getListClubsQueryKey() });
       navigate(`/clubs/${club.id}/admin`);
       toast({ title: "Club registered", description: "You can now customize its team and events." });
@@ -136,6 +158,47 @@ export function ClubRegister() {
             <form onSubmit={submit} className="space-y-5">
               <div><label className="mb-2 block text-sm font-medium">Club name</label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Robotics Club" required minLength={2} /></div>
               <div><label className="mb-2 block text-sm font-medium">About the club</label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What does your club do, and who is it for?" required minLength={10} rows={5} /></div>
+              {isPlatformAdmin && (
+                <div className="rounded-lg border border-dashed border-border p-4">
+                  <p className="mb-2 text-sm font-medium">Club creator <span className="text-muted-foreground font-normal">(admin only — defaults to you)</span></p>
+                  {creator ? (
+                    <div className="flex items-center justify-between rounded-md bg-muted px-3 py-2">
+                      <span className="text-sm font-medium" data-testid="text-club-creator">{creator.name}</span>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => { setCreator(null); setCreatorQuery(""); }} data-testid="button-creator-clear">
+                        Change
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Input
+                        value={creatorQuery}
+                        onChange={(e) => setCreatorQuery(e.target.value)}
+                        placeholder="Search students by name or email"
+                        data-testid="input-creator-search"
+                      />
+                      {creatorQuery.trim().length >= 2 && (
+                        <div className="mt-2 max-h-44 space-y-1 overflow-y-auto">
+                          {typedCreatorResults.map((u) => (
+                            <button
+                              key={String(u.clerkId)}
+                              type="button"
+                              className="flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm hover:bg-muted"
+                              onClick={() => setCreator({ clerkId: String(u.clerkId), name: String(u.name) })}
+                              data-testid={`button-creator-pick-${u.clerkId}`}
+                            >
+                              <span className="font-medium">{String(u.name)}</span>
+                              <span className="text-xs text-muted-foreground">{String(u.email ?? "")}</span>
+                            </button>
+                          ))}
+                          {typedCreatorResults.length === 0 && (
+                            <p className="text-xs text-muted-foreground px-1 py-2">No onboarded students match that search.</p>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div><p className="mb-2 text-sm font-medium">Club logo</p><UploadButton accept="image/png,image/jpeg,image/webp" label={logoPath ? "Logo uploaded" : "Upload logo"} onUploaded={(path) => setLogoPath(path)} />{logoPath && <Badge variant="secondary" className="ml-2">Ready</Badge>}</div>
                 <div><p className="mb-2 text-sm font-medium">Brochure or invite</p><UploadButton accept=".pdf,image/png,image/jpeg" label={brochureName ?? "Upload brochure"} onUploaded={(path, fileName) => { setBrochurePath(path); setBrochureName(fileName); }} />{brochurePath && <Badge variant="secondary" className="ml-2">Ready</Badge>}</div>

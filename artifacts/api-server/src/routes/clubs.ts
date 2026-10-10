@@ -112,7 +112,7 @@ router.get("/", async (_req: Request, res: Response) => {
 router.post("/", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
   const college = await getPrimaryCollege();
-  const { name, description, logoPath, brochurePath, brochureName } = req.body ?? {};
+  const { name, description, logoPath, brochurePath, brochureName, createdBy: requestedCreator } = req.body ?? {};
   if (!college) {
     res.status(400).json({ error: "No approved college is configured yet" });
     return;
@@ -126,6 +126,21 @@ router.post("/", requireAuth, strictWriteLimit(), async (req: Request, res: Resp
     res.status(403).json({ error: "This college does not allow students to create clubs." });
     return;
   }
+  // Attribution: always the caller — unless a platform admin explicitly
+  // assigns another existing user as creator (client value never trusted).
+  let creatorId = userId;
+  if (requestedCreator !== undefined && requestedCreator !== null && requestedCreator !== userId) {
+    if (!(await isAdmin(userId))) {
+      res.status(403).json({ error: "Only platform admins can assign a different creator." });
+      return;
+    }
+    const [target] = await db.select().from(usersTable).where(eq(usersTable.clerkId, requestedCreator)).limit(1);
+    if (!target) {
+      res.status(400).json({ error: "Creator user not found. They need to finish onboarding first." });
+      return;
+    }
+    creatorId = target.clerkId;
+  }
   const [club] = await db.insert(clubsTable).values({
     collegeId: college.id,
     name: name.trim(),
@@ -133,9 +148,16 @@ router.post("/", requireAuth, strictWriteLimit(), async (req: Request, res: Resp
     logoPath: logoPath ?? null,
     brochurePath: brochurePath ?? null,
     brochureName: brochureName ?? null,
-    createdBy: userId,
+    createdBy: creatorId,
     status: "published",
   }).returning();
+  await recordAuditLog(req, {
+    action: creatorId === userId ? "CLUB_CREATED" : "ADMIN_CREATED_CLUB_FOR",
+    entityType: "club",
+    entityId: club.id,
+    after: club,
+    metadata: { collegeId: college.id },
+  });
   res.status(201).json(await formatClub(club, true));
 });
 

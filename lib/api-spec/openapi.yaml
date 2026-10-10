@@ -2271,6 +2271,7 @@ components:
         logoPath:      { type: ["string", "null"] }
         brochurePath:  { type: ["string", "null"] }
         brochureName:  { type: ["string", "null"] }
+        createdBy:     { type: string, description: "Admin-only: attribute the club to another user's Clerk ID. Ignored for non-admins." }
 
     ClubUpdate:
       type: object
