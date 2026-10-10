@@ -1113,6 +1113,63 @@ export const DeleteClubMemberResponse = zod.void()
 
 
 /**
+ * @summary Request to join a club
+ */
+export const JoinClubParams = zod.object({
+  "clubId": zod.coerce.number()
+})
+
+export const JoinClubResponse = zod.object({
+  "id": zod.number(),
+  "clubId": zod.number(),
+  "userId": zod.string(),
+  "userName": zod.string().optional(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List pending club join requests (owner/admin)
+ */
+export const ListClubJoinRequestsParams = zod.object({
+  "clubId": zod.coerce.number()
+})
+
+export const ListClubJoinRequestsResponseItem = zod.object({
+  "id": zod.number(),
+  "clubId": zod.number(),
+  "userId": zod.string(),
+  "userName": zod.string().optional(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "createdAt": zod.coerce.date()
+})
+export const ListClubJoinRequestsResponse = zod.array(ListClubJoinRequestsResponseItem)
+
+
+/**
+ * @summary Approve or reject a club join request (owner/admin)
+ */
+export const UpdateClubJoinRequestParams = zod.object({
+  "clubId": zod.coerce.number(),
+  "requestId": zod.coerce.number()
+})
+
+export const UpdateClubJoinRequestBody = zod.object({
+  "status": zod.enum(['approved', 'rejected'])
+})
+
+export const UpdateClubJoinRequestResponse = zod.object({
+  "id": zod.number(),
+  "clubId": zod.number(),
+  "userId": zod.string(),
+  "userName": zod.string().optional(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
  * @summary List a club's upcoming events
  */
 export const ListClubEventsParams = zod.object({

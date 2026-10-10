@@ -5,6 +5,7 @@ import {
   clubsTable,
   clubMembersTable,
   clubManagementEventsTable,
+  clubJoinRequestsTable,
   collegesTable,
   usersTable,
 } from "@workspace/db";
@@ -14,6 +15,7 @@ import { getParam } from "../lib/params";
 import { strictWriteLimit } from "../lib/rateLimit";
 import { canDeleteClub, canDeleteClubManagementEvent, isAdmin } from "../lib/policy";
 import { collegeCreateAllowed } from "../lib/collegeRbac";
+import { notificationService } from "../lib/notify";
 import { recordAuditLog } from "../lib/audit";
 import { deleteObject, isGcsConfigured, objectNameFromPath } from "../lib/gcsStorage";
 import { deleteObject as sbDeleteObject, isSupabaseConfigured, objectNameFromPath as sbObjectNameFromPath } from "../lib/supabaseStorage";
@@ -233,8 +235,108 @@ router.delete("/:clubId", requireAuth, strictWriteLimit(), async (req: Request, 
   res.status(204).end();
 });
 
-router.get("/:clubId/members", async (req: Request, res: Response) => {
-  const id = Number(getParam(req, "clubId"));
+// Request to join a club (any signed-in user; deduped).
+router.post("/:clubId/join", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
+  const { userId } = getAuth(req);
+  const clubId = Number(getParam(req, "clubId"));
+  const club = await getClubOrNull(clubId);
+  if (!club) {
+    res.status(404).json({ error: "Club not found" });
+    return;
+  }
+  const member = await db.select().from(clubMembersTable)
+    .where(and(eq(clubMembersTable.clubId, clubId), eq(clubMembersTable.clerkId, userId!))).limit(1);
+  if (member.length) {
+    res.status(409).json({ error: "Already a club member" });
+    return;
+  }
+  const pending = await db.select().from(clubJoinRequestsTable)
+    .where(and(eq(clubJoinRequestsTable.clubId, clubId), eq(clubJoinRequestsTable.clerkId, userId!), eq(clubJoinRequestsTable.status, "pending"))).limit(1);
+  if (pending.length) {
+    res.status(409).json({ error: "Join request already pending" });
+    return;
+  }
+  const [request] = await db.insert(clubJoinRequestsTable).values({
+    clubId, clerkId: userId!, status: "pending",
+  }).returning();
+  const u = await getUser(userId!);
+  res.status(201).json({
+    id: request.id, clubId: request.clubId, userId: request.clerkId,
+    userName: u?.name ?? "", status: request.status, createdAt: request.createdAt,
+  });
+});
+
+// List pending join requests (club owner/admin).
+router.get("/:clubId/join-requests", requireAuth, async (req: Request, res: Response) => {
+  const clubId = await getManagedClub(req, res);
+  if (!clubId) return;
+  const requests = await db.select().from(clubJoinRequestsTable)
+    .where(and(eq(clubJoinRequestsTable.clubId, clubId), eq(clubJoinRequestsTable.status, "pending")));
+  const enriched = await Promise.all(requests.map(async (r) => {
+    const u = await getUser(r.clerkId);
+    return {
+      id: r.id, clubId: r.clubId, userId: r.clerkId,
+      userName: u?.name ?? "", status: r.status, createdAt: r.createdAt,
+    };
+  }));
+  res.json(enriched);
+});
+
+// Approve / reject a join request (club owner/admin). Approval links the
+// requester as a member row so they appear in the team list.
+router.patch("/:clubId/join-requests/:requestId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
+  const clubId = await getManagedClub(req, res);
+  if (!clubId) return;
+  const requestId = Number(getParam(req, "requestId"));
+  const { status } = req.body ?? {};
+  if (status !== "approved" && status !== "rejected") {
+    res.status(400).json({ error: 'status must be "approved" or "rejected"' });
+    return;
+  }
+  const [target] = await db.select().from(clubJoinRequestsTable)
+    .where(and(eq(clubJoinRequestsTable.id, requestId), eq(clubJoinRequestsTable.clubId, clubId))).limit(1);
+  if (!target) {
+    res.status(404).json({ error: "Join request not found for this club" });
+    return;
+  }
+  const [updated] = await db.update(clubJoinRequestsTable)
+    .set({ status }).where(eq(clubJoinRequestsTable.id, requestId)).returning();
+  const { userId } = getAuth(req);
+  if (status === "approved") {
+    const u = await getUser(target.clerkId);
+    const existing = await db.select().from(clubMembersTable)
+      .where(and(eq(clubMembersTable.clubId, clubId), eq(clubMembersTable.clerkId, target.clerkId))).limit(1);
+    if (!existing.length) {
+      await db.insert(clubMembersTable).values({
+        clubId, clerkId: target.clerkId, name: u?.name ?? "Member", role: "member",
+      });
+    }
+    await notificationService.send(
+      target.clerkId,
+      "club_join_approved",
+      `Your request to join "${(await getClubOrNull(clubId))?.name ?? "the club"}" was approved!`,
+      `/clubs/${clubId}`,
+    );
+  } else {
+    await notificationService.send(
+      target.clerkId,
+      "club_join_rejected",
+      `Your request to join "${(await getClubOrNull(clubId))?.name ?? "the club"}" was not approved.`,
+      `/clubs/${clubId}`,
+    );
+  }
+  await recordAuditLog(req, {
+    action: `CLUB_JOIN_${status.toUpperCase()}`,
+    entityType: "club_join_request",
+    entityId: requestId,
+    before: target,
+    after: updated,
+    metadata: { clubId, decidedBy: userId },
+  });
+  res.json(updated);
+});
+
+router.get("/:clubId/members", async (req: Request, res: Response) => {  const id = Number(getParam(req, "clubId"));
   res.json(await db.select().from(clubMembersTable)
     .where(eq(clubMembersTable.clubId, id))
     .orderBy(asc(clubMembersTable.displayOrder), asc(clubMembersTable.id)));

@@ -42,6 +42,17 @@ export const clubManagementEventsTable = pgTable("club_management_events", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const clubJoinRequestsTable = pgTable("club_join_requests", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  clubId: integer("club_id").notNull().references(() => clubsTable.id, { onDelete: "cascade" }),
+  clerkId: text("clerk_id").notNull(),
+  status: text("status").notNull().default("pending"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  unique("club_join_requests_club_clerk_status_unique").on(t.clubId, t.clerkId, t.status),
+  index("club_join_requests_club_idx").on(t.clubId),
+]);
+
 export const insertClubSchema = createInsertSchema(clubsTable).omit({ createdAt: true, updatedAt: true });
 export const insertClubMemberSchema = createInsertSchema(clubMembersTable).omit({ createdAt: true });
 export const insertClubManagementEventSchema = createInsertSchema(clubManagementEventsTable).omit({ createdAt: true, updatedAt: true });

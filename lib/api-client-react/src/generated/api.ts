@@ -33,6 +33,7 @@ import type {
   ClubEventInput,
   ClubEventUpdate,
   ClubInput,
+  ClubJoinRequest,
   ClubManagementEvent,
   ClubManagementEventInput,
   ClubMember,
@@ -84,6 +85,7 @@ import type {
   StorageUploadInput,
   StorageUploadResponse,
   UnreadCount,
+  UpdateClubJoinRequestBody,
   UpdateReportBody,
   UserProfile,
   UserProfileUpdate,
@@ -3245,6 +3247,226 @@ export const useDeleteClubMember = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteClubMemberMutationOptions(options));
+    }
+
+export const getJoinClubUrl = (clubId: number,) => {
+
+
+
+
+  return `/api/clubs/${clubId}/join`
+}
+
+/**
+ * @summary Request to join a club
+ */
+export const joinClub = async (clubId: number, options?: RequestInit): Promise<ClubJoinRequest> => {
+
+  return customFetch<ClubJoinRequest>(getJoinClubUrl(clubId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getJoinClubMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinClub>>, TError,{clubId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof joinClub>>, TError,{clubId: number}, TContext> => {
+
+const mutationKey = ['joinClub'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof joinClub>>, {clubId: number}> = (props) => {
+          const {clubId} = props ?? {};
+
+          return  joinClub(clubId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type JoinClubMutationResult = NonNullable<Awaited<ReturnType<typeof joinClub>>>
+
+    export type JoinClubMutationError = ErrorType<void>
+
+    /**
+ * @summary Request to join a club
+ */
+export const useJoinClub = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinClub>>, TError,{clubId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof joinClub>>,
+        TError,
+        {clubId: number},
+        TContext
+      > => {
+      return useMutation(getJoinClubMutationOptions(options));
+    }
+
+export const getListClubJoinRequestsUrl = (clubId: number,) => {
+
+
+
+
+  return `/api/clubs/${clubId}/join-requests`
+}
+
+/**
+ * @summary List pending club join requests (owner/admin)
+ */
+export const listClubJoinRequests = async (clubId: number, options?: RequestInit): Promise<ClubJoinRequest[]> => {
+
+  return customFetch<ClubJoinRequest[]>(getListClubJoinRequestsUrl(clubId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListClubJoinRequestsQueryKey = (clubId: number,) => {
+    return [
+    `/api/clubs/${clubId}/join-requests`
+    ] as const;
+    }
+
+
+export const getListClubJoinRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listClubJoinRequests>>, TError = ErrorType<unknown>>(clubId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClubJoinRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListClubJoinRequestsQueryKey(clubId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listClubJoinRequests>>> = ({ signal }) => listClubJoinRequests(clubId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: clubId !== null && clubId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listClubJoinRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListClubJoinRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listClubJoinRequests>>>
+export type ListClubJoinRequestsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List pending club join requests (owner/admin)
+ */
+
+export function useListClubJoinRequests<TData = Awaited<ReturnType<typeof listClubJoinRequests>>, TError = ErrorType<unknown>>(
+ clubId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClubJoinRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListClubJoinRequestsQueryOptions(clubId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateClubJoinRequestUrl = (clubId: number,
+    requestId: number,) => {
+
+
+
+
+  return `/api/clubs/${clubId}/join-requests/${requestId}`
+}
+
+/**
+ * @summary Approve or reject a club join request (owner/admin)
+ */
+export const updateClubJoinRequest = async (clubId: number,
+    requestId: number,
+    updateClubJoinRequestBody: UpdateClubJoinRequestBody, options?: RequestInit): Promise<ClubJoinRequest> => {
+
+  return customFetch<ClubJoinRequest>(getUpdateClubJoinRequestUrl(clubId,requestId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateClubJoinRequestBody)
+  }
+);}
+
+
+
+
+export const getUpdateClubJoinRequestMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClubJoinRequest>>, TError,{clubId: number;requestId: number;data: BodyType<UpdateClubJoinRequestBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateClubJoinRequest>>, TError,{clubId: number;requestId: number;data: BodyType<UpdateClubJoinRequestBody>}, TContext> => {
+
+const mutationKey = ['updateClubJoinRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateClubJoinRequest>>, {clubId: number;requestId: number;data: BodyType<UpdateClubJoinRequestBody>}> = (props) => {
+          const {clubId,requestId,data} = props ?? {};
+
+          return  updateClubJoinRequest(clubId,requestId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateClubJoinRequestMutationResult = NonNullable<Awaited<ReturnType<typeof updateClubJoinRequest>>>
+    export type UpdateClubJoinRequestMutationBody = BodyType<UpdateClubJoinRequestBody>
+    export type UpdateClubJoinRequestMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Approve or reject a club join request (owner/admin)
+ */
+export const useUpdateClubJoinRequest = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClubJoinRequest>>, TError,{clubId: number;requestId: number;data: BodyType<UpdateClubJoinRequestBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateClubJoinRequest>>,
+        TError,
+        {clubId: number;requestId: number;data: BodyType<UpdateClubJoinRequestBody>},
+        TContext
+      > => {
+      return useMutation(getUpdateClubJoinRequestMutationOptions(options));
     }
 
 export const getListClubEventsUrl = (clubId: number,) => {

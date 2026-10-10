@@ -992,6 +992,84 @@ paths:
         "204":
           description: Team member removed
 
+  /clubs/{clubId}/join:
+    post:
+      operationId: joinClub
+      tags: [clubs]
+      summary: Request to join a club
+      security: [{ clerk: [] }]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Join request submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClubJoinRequest"
+        "409":
+          description: Already a member or request pending
+
+  /clubs/{clubId}/join-requests:
+    get:
+      operationId: listClubJoinRequests
+      tags: [clubs]
+      summary: List pending club join requests (owner/admin)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Join requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ClubJoinRequest"
+
+  /clubs/{clubId}/join-requests/{requestId}:
+    patch:
+      operationId: updateClubJoinRequest
+      tags: [clubs]
+      summary: Approve or reject a club join request (owner/admin)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [approved, rejected] }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClubJoinRequest"
+
   /clubs/{clubId}/events:
     get:
       operationId: listClubEvents
@@ -2300,6 +2378,17 @@ components:
         name:          { type: string, minLength: 2 }
         role:          { type: string, minLength: 2 }
         displayOrder:  { type: integer }
+
+    ClubJoinRequest:
+      type: object
+      required: [id, clubId, userId, status, createdAt]
+      properties:
+        id:        { type: integer }
+        clubId:    { type: integer }
+        userId:    { type: string }
+        userName:  { type: string }
+        status:    { type: string, enum: [pending, approved, rejected] }
+        createdAt: { type: string, format: date-time }
 
     ClubManagementEvent:
       type: object

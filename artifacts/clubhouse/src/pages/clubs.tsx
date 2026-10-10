@@ -7,6 +7,8 @@ import {
   useCreateClub, useUpdateClub, useCreateClubMember, useDeleteClubMember,
   useCreateClubEvent, useUpdateClubEvent, useDeleteClubEvent, useDeleteClub,
   useGetMyProfile, getGetMyProfileQueryKey, useSearchUsers, getSearchUsersQueryKey,
+  useJoinClub, useListClubJoinRequests, getListClubJoinRequestsQueryKey,
+  useUpdateClubJoinRequest,
 } from "@workspace/api-client-react";
 import { DeleteConfirm } from "@/components/delete-confirm";
 import { ReportDialog } from "@/components/report-dialog";
@@ -22,7 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { appConfig } from "@/lib/config";
-import { ArrowLeft, CalendarDays, ExternalLink, FileText, Flag, ImagePlus, Pencil, Plus, Settings, Trash2, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, ExternalLink, FileText, Flag, ImagePlus, Pencil, Plus, Settings, Trash2, UserPlus, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 function assetUrl(path?: string | null) {
@@ -228,14 +230,31 @@ export function ClubRegister() {
 export function ClubProfile() {
   const [, params] = useRoute("/clubs/:clubId");
   const id = Number(params?.clubId);
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, userId } = useAuth();
   const [reportOpen, setReportOpen] = useState(false);
+  const [joinRequested, setJoinRequested] = useState(false);
+  const { toast } = useToast();
   const { data, isLoading } = useGetClub(id, { query: { queryKey: getGetClubQueryKey(id), enabled: Number.isInteger(id) } });
   const club = data as Club | undefined;
+  const joinClub = useJoinClub();
   if (isLoading) return <AppLayout><div className="mx-auto max-w-5xl p-6"><Skeleton className="h-48 rounded-xl" /></div></AppLayout>;
   if (!club) return <AppLayout><div className="p-6 text-center text-muted-foreground">Club not found.</div></AppLayout>;
   const logo = assetUrl(club.logoPath);
   const brochure = assetUrl(club.brochurePath);
+  const members = (club.members ?? []) as unknown as Array<Record<string, unknown>>;
+  const isMember = Boolean(userId && members.some((m) => m.clerkId === userId));
+  const isOwner = Boolean(userId && club.createdBy === userId);
+
+  async function handleJoin() {
+    try {
+      await joinClub.mutateAsync({ clubId: id });
+      setJoinRequested(true);
+      toast({ title: "Join request sent!", description: "The club owner will review it soon." });
+    } catch {
+      setJoinRequested(true);
+      toast({ title: "Already requested or a member", variant: "destructive" });
+    }
+  }
   return (
     <AppLayout>
       <div className="mx-auto max-w-5xl p-6">
@@ -248,6 +267,17 @@ export function ClubProfile() {
               <div className="flex-1"><h1 className="text-3xl font-bold">{club.name}</h1><p className="mt-2 max-w-2xl text-muted-foreground">{club.description}</p></div>
               {brochure && <a href={brochure} target="_blank" rel="noreferrer"><Button variant="outline" className="gap-2"><FileText className="h-4 w-4" /> {club.brochureName || "Club brochure"}</Button></a>}
               <Link href={`/clubs/${club.id}/admin`}><Button variant="outline" size="icon" aria-label="Club settings"><Settings className="h-4 w-4" /></Button></Link>
+              {isSignedIn && !isMember && !isOwner && (
+                joinRequested ? (
+                  <Button variant="outline" size="sm" disabled data-testid="button-join-club-pending">
+                    Request pending
+                  </Button>
+                ) : (
+                  <Button size="sm" className="gap-2" onClick={() => void handleJoin()} disabled={joinClub.isPending} data-testid="button-join-club">
+                    <UserPlus className="h-4 w-4" /> {joinClub.isPending ? "Requesting..." : "Join Club"}
+                  </Button>
+                )
+              )}
               {isSignedIn && (
                 <Button variant="ghost" size="icon" onClick={() => setReportOpen(true)} aria-label="Report club" data-testid="button-report-club">
                   <Flag className="h-4 w-4" />
@@ -293,6 +323,7 @@ export function ClubAdmin() {
   const editEvent = useUpdateClubEvent();
   const deleteEvent = useDeleteClubEvent();
   const removeClub = useDeleteClub();
+  const updateJoinRequest = useUpdateClubJoinRequest();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [logoPath, setLogoPath] = useState<string | null>(null);
@@ -314,6 +345,22 @@ export function ClubAdmin() {
   if (!club) return <AppLayout><div className="p-6 text-center">Club not found.</div></AppLayout>;
   const isOwner = club.createdBy === userId;
   if (!isOwner && typedProfile?.role !== "admin") return <AppLayout><div className="mx-auto max-w-xl p-6"><Card><CardContent className="p-8 text-center"><h1 className="font-semibold">Admin access required</h1><p className="mt-2 text-sm text-muted-foreground">Only the club administrator can edit this page.</p><Link href={`/clubs/${club.id}`}><Button className="mt-5">Back to club</Button></Link></CardContent></Card></div></AppLayout>;
+
+  const { data: joinRequests } = useListClubJoinRequests(id, {
+    query: { queryKey: getListClubJoinRequestsQueryKey(id), enabled: Number.isInteger(id) },
+  });
+  const typedJoinRequests = ((joinRequests as unknown as Array<Record<string, unknown>>) ?? []);
+
+  async function handleJoinRequest(requestId: number, status: "approved" | "rejected") {
+    try {
+      await updateJoinRequest.mutateAsync({ clubId: id, requestId, data: { status } });
+      qc.invalidateQueries({ queryKey: getListClubJoinRequestsQueryKey(id) });
+      refresh();
+      toast({ title: status === "approved" ? "Member approved!" : "Request rejected" });
+    } catch {
+      toast({ title: "Could not update request", variant: "destructive" });
+    }
+  }
 
   const refresh = () => qc.invalidateQueries({ queryKey: getGetClubQueryKey(id) });
   const saveProfile = async () => { try { await updateClub.mutateAsync({ clubId: id, data: { name: name || club.name, description: description || club.description, logoPath: logoPath ?? club.logoPath, brochurePath: brochurePath ?? club.brochurePath, brochureName: brochureName ?? club.brochureName } }); refresh(); toast({ title: "Club profile saved" }); } catch { toast({ title: "Could not save profile", variant: "destructive" }); } };
@@ -353,6 +400,7 @@ export function ClubAdmin() {
         <div className="grid gap-6 lg:grid-cols-2">
           <Card><CardHeader><CardTitle>Club profile</CardTitle></CardHeader><CardContent className="space-y-4"><Input placeholder={club.name} value={name} onChange={(e) => setName(e.target.value)} /><Textarea placeholder={club.description} value={description} onChange={(e) => setDescription(e.target.value)} rows={5} /><div className="flex flex-wrap gap-2"><UploadButton accept="image/png,image/jpeg,image/webp" label={logoPath || club.logoPath ? "Replace logo" : "Upload logo"} onUploaded={(path) => setLogoPath(path)} /><UploadButton accept=".pdf,image/png,image/jpeg" label={brochureName || club.brochureName || "Upload brochure"} onUploaded={(path, fileName) => { setBrochurePath(path); setBrochureName(fileName); }} /></div><Button onClick={saveProfile} disabled={updateClub.isPending}>Save profile</Button></CardContent></Card>
           <Card><CardHeader><CardTitle>Team members</CardTitle></CardHeader><CardContent><form onSubmit={saveMember} className="mb-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><Input placeholder="Name" value={memberName} onChange={(e) => setMemberName(e.target.value)} required /><Input placeholder="Role" value={memberRole} onChange={(e) => setMemberRole(e.target.value)} required /><Button type="submit" size="icon" aria-label="Add team member"><Plus className="h-4 w-4" /></Button></form><div className="space-y-2">{(club.members ?? []).map((member: ClubMember) => <div key={member.id} className="flex items-center justify-between rounded-lg border p-3"><div><p className="font-medium">{member.name}</p><p className="text-sm text-muted-foreground">{member.role}</p></div><Button variant="ghost" size="icon" onClick={async () => { await deleteMember.mutateAsync({ clubId: id, memberId: member.id }); refresh(); }} aria-label={`Remove ${member.name}`}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>)}</div></CardContent></Card>
+          <Card><CardHeader><CardTitle>Join requests {typedJoinRequests.length > 0 && <Badge className="ml-2">{typedJoinRequests.length}</Badge>}</CardTitle></CardHeader><CardContent>{typedJoinRequests.length === 0 ? <p className="text-sm text-muted-foreground">No pending requests.</p> : <div className="space-y-2">{typedJoinRequests.map((r) => <div key={String(r.id)} className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border p-3" data-testid={`card-club-join-${r.id}`}><div className="flex-1 min-w-0"><p className="font-medium text-sm" data-testid={`text-club-request-name-${r.id}`}>{String(r.userName || "Student")}</p></div><div className="flex gap-2 flex-shrink-0"><Button size="sm" className="gap-1.5 bg-green-600 hover:bg-green-700" onClick={() => void handleJoinRequest(Number(r.id), "approved")} data-testid={`button-approve-club-join-${r.id}`}>Approve</Button><Button size="sm" variant="outline" onClick={() => void handleJoinRequest(Number(r.id), "rejected")} data-testid={`button-reject-club-join-${r.id}`}>Reject</Button></div></div>)}</div>}</CardContent></Card>
           <Card className="lg:col-span-2"><CardHeader><CardTitle>Events</CardTitle></CardHeader><CardContent><form onSubmit={saveEvent} className="grid gap-3 md:grid-cols-2"><Input placeholder="Event title" value={eventTitle} onChange={(e) => setEventTitle(e.target.value)} required /><Input type="datetime-local" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required /><Textarea className="md:col-span-2" placeholder="Event description (optional)" value={eventDescription} onChange={(e) => setEventDescription(e.target.value)} /><div className="flex items-center gap-3"><UploadButton accept="image/png,image/jpeg,image/webp" label={eventBanner ? "Banner uploaded" : "Upload event banner"} onUploaded={(path) => setEventBanner(path)} /><Button type="submit" disabled={addEvent.isPending} className="gap-2"><Plus className="h-4 w-4" /> Create event</Button></div></form><div className="mt-6 grid gap-3 md:grid-cols-2">{(club.events ?? []).map((event: ClubManagementEvent) => <div key={event.id} className="rounded-lg border p-4"><div className="flex justify-between gap-3"><div><p className="font-semibold">{event.title}</p><p className="text-sm text-muted-foreground">{new Date(event.scheduledAt).toLocaleString()}</p></div><div className="flex gap-1 flex-shrink-0"><Button variant="ghost" size="icon" onClick={() => startEditEvent(event)} aria-label={`Edit ${event.title}`} data-testid={`button-edit-club-event-${event.id}`}><Pencil className="h-4 w-4" /></Button><Button variant="ghost" size="icon" onClick={() => setEventToDelete(event)} aria-label={`Delete ${event.title}`} data-testid={`button-delete-club-event-${event.id}`}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></div>{event.description && <p className="mt-2 text-sm">{event.description}</p>}</div>)}</div></CardContent></Card>
           <Card className="lg:col-span-2 border-destructive/40"><CardHeader><CardTitle className="text-destructive">Danger zone</CardTitle></CardHeader><CardContent className="flex flex-col sm:flex-row sm:items-center gap-3"><p className="text-sm text-muted-foreground flex-1">Permanently remove this club, its team list, events and assets. This cannot be undone.</p><Button variant="destructive" className="gap-2" onClick={() => setDeleteClubOpen(true)} data-testid="button-delete-club"><Trash2 className="h-4 w-4" /> Delete club</Button></CardContent></Card>
         </div>

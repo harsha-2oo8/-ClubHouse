@@ -78,4 +78,26 @@ test.describe("clubs", () => {
     await page.goto(`/clubs/${id}/admin`);
     await expect(page.getByText("Admin access required")).toBeVisible({ timeout: 20_000 });
   });
+
+  test("member requests to join; owner approves; member linked", async ({ page, baseURL }) => {
+    await signInAs(page, baseURL!, await clerkIdByEmail(ROLES.studentB));
+    const id = await findClubId(E2E.clubAlpha);
+    await page.goto(`/clubs/${id}`);
+    await page.getByTestId("button-join-club").click();
+    await expect(page.getByText("Join request sent!")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("button-join-club-pending")).toBeVisible({ timeout: 20_000 });
+    // Reload resets local state; re-requesting hits the 409 guard.
+    await page.goto(`/clubs/${id}`);
+    await page.getByTestId("button-join-club").click();
+    await expect(page.getByText("Already requested")).toBeVisible({ timeout: 20_000 });
+
+    await signInAs(page, baseURL!, await clerkIdByEmail(ROLES.studentA));
+    await page.goto(`/clubs/${id}/admin`);
+    const card = page.locator('[data-testid^="card-club-join-"]', { hasText: "Diya Patel" });
+    await expect(card).toBeVisible({ timeout: 20_000 });
+    const reqId = (await card.getAttribute("data-testid"))!.replace("card-club-join-", "");
+    await card.getByTestId(`button-approve-club-join-${reqId}`).click();
+    await expect(page.getByText("Member approved!")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("Diya Patel")).toBeVisible({ timeout: 20_000 });
+  });
 });

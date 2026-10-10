@@ -429,6 +429,24 @@ export interface ClubMemberInput {
   displayOrder?: number;
 }
 
+export type ClubJoinRequestStatus = typeof ClubJoinRequestStatus[keyof typeof ClubJoinRequestStatus];
+
+
+export const ClubJoinRequestStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export interface ClubJoinRequest {
+  id: number;
+  clubId: number;
+  userId: string;
+  userName?: string;
+  status: ClubJoinRequestStatus;
+  createdAt: string;
+}
+
 export interface ClubManagementEventInput {
   /** @minLength 2 */
   title: string;
@@ -989,6 +1007,18 @@ export type VerifyMemberTypeBody = {
 
 export type AssignCollegeRoleBody = {
   clerkId: string;
+};
+
+export type UpdateClubJoinRequestBodyStatus = typeof UpdateClubJoinRequestBodyStatus[keyof typeof UpdateClubJoinRequestBodyStatus];
+
+
+export const UpdateClubJoinRequestBodyStatus = {
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export type UpdateClubJoinRequestBody = {
+  status: UpdateClubJoinRequestBodyStatus;
 };
 
 export type ListProjectsParams = {
