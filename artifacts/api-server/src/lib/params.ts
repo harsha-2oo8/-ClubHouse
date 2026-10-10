@@ -3,7 +3,9 @@ import type { Request } from "express";
 /** Express 5 types req.params values as string | string[]. Normalize to a single string. */
 export function getParam(req: Request, name: string): string {
   const raw: unknown = (req.params as Record<string, unknown>)[name];
-  if (Array.isArray(raw)) return String(raw[0] ?? "");
+  // Named wildcards (*path) yield multi-segment arrays in Express 5 — join
+  // them back into a path. Single-segment params are unaffected.
+  if (Array.isArray(raw)) return raw.map((s) => String(s ?? "")).join("/");
   return String(raw ?? "");
 }
 

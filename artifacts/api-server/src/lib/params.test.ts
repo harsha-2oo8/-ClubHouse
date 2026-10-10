@@ -11,8 +11,10 @@ describe("getParam", () => {
     expect(getParam(req({ id: "12" }), "id")).toBe("12");
   });
 
-  it("takes the first value of array params (Express 5)", () => {
-    expect(getParam(req({ id: ["7", "8"] }), "id")).toBe("7");
+  it("joins Express 5 multi-segment wildcard arrays back into a path", () => {
+    expect(getParam(req({ path: ["public", "user_1", "a-b.png"] }), "path")).toBe(
+      "public/user_1/a-b.png",
+    );
   });
 
   it("returns empty string for missing params", () => {
