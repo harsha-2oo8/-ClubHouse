@@ -95,10 +95,14 @@ export default function ProjectPage() {
   const typedMembers = (members as unknown as Array<Record<string, unknown>>) ?? [];
   const isMember = typedMembers.some(m => m.clerkId === userId);
   const typedProject = project as Record<string, unknown> | null | undefined;
+  // Platform admins manage any project without joining it.
+  const isPlatformAdmin = (profile as { role?: string } | null | undefined)?.role === "admin";
   const canInvite = !!userId && (
     typedProject?.ownerId === userId ||
+    isPlatformAdmin ||
     typedMembers.some(m => m.clerkId === userId && ["owner", "moderator"].includes(String(m.role)))
   );
+  const canAccessPrivate = isMember || isPlatformAdmin;
   const hasInvite = new URLSearchParams(window.location.search).get("invite") === "1";
 
   const { data: searchResults } = useSearchUsers(
@@ -113,8 +117,8 @@ export default function ProjectPage() {
   const inviteUser = useInviteUserToProject();
   const typedSearchResults = (searchResults as unknown as Array<Record<string, unknown>>) ?? [];
 
-  const { data: messages } = useGetProjectMessages(projectId, undefined, { query: { queryKey: getGetProjectMessagesQueryKey(projectId), enabled: !!projectId && isMember } });
-  const { data: events } = useGetProjectEvents(projectId, { query: { queryKey: getGetProjectEventsQueryKey(projectId), enabled: !!projectId && isMember } });
+  const { data: messages } = useGetProjectMessages(projectId, undefined, { query: { queryKey: getGetProjectMessagesQueryKey(projectId), enabled: !!projectId && canAccessPrivate } });
+  const { data: events } = useGetProjectEvents(projectId, { query: { queryKey: getGetProjectEventsQueryKey(projectId), enabled: !!projectId && canAccessPrivate } });
 
   const sendMessage = useSendProjectMessage();
   const applyToProject = useApplyToProject();
@@ -562,8 +566,8 @@ export default function ProjectPage() {
         <Tabs defaultValue={isMember ? "chat" : "members"}>
           <TabsList className="mb-6">
             <TabsTrigger value="members">Members ({typedMembers.length})</TabsTrigger>
-            {isMember && <TabsTrigger value="chat">Chat</TabsTrigger>}
-            {isMember && <TabsTrigger value="events">Meetings ({typedEvents.length})</TabsTrigger>}
+            {canAccessPrivate && <TabsTrigger value="chat">Chat</TabsTrigger>}
+            {canAccessPrivate && <TabsTrigger value="events">Meetings ({typedEvents.length})</TabsTrigger>}
             {canDeleteProject && (
               <TabsTrigger value="applications" data-testid="tab-applications">
                 Applications
@@ -651,11 +655,16 @@ export default function ProjectPage() {
             </TabsContent>
           )}
 
-          {isMember && (
+          {canAccessPrivate && (
             <TabsContent value="chat">
               <Card className="flex flex-col h-[500px]">
                 <CardHeader className="pb-3 border-b flex-shrink-0">
-                  <CardTitle className="text-base">Project Chat</CardTitle>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    Project Chat
+                    {isPlatformAdmin && !isMember && (
+                      <Badge variant="secondary" className="text-xs font-normal">viewing as admin</Badge>
+                    )}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
                   {typedMessages.length === 0 ? (
@@ -709,7 +718,7 @@ export default function ProjectPage() {
             </TabsContent>
           )}
 
-          {isMember && (
+          {canAccessPrivate && (
             <TabsContent value="events">
               <div className="flex justify-end mb-4">
                 <Dialog open={eventOpen} onOpenChange={setEventOpen}>

@@ -5,6 +5,7 @@ import { eq, and, ilike, sql, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { notificationService } from "../lib/notify";
 import { getMemberRoles, collegeJoinAllowed } from "../lib/collegeRbac";
+import { isAdmin } from "../lib/policy";
 import { getParam, getLimit } from "../lib/params";
 import { strictWriteLimit } from "../lib/rateLimit";
 
@@ -302,7 +303,7 @@ router.patch("/:collegeId/members/:userId/role", requireAuth, strictWriteLimit()
   const { role, customRole } = req.body;
 
   const myRole = await getMemberRole(collegeId, currentUserId!);
-  if (myRole !== "moderator" && myRole !== "admin") {
+  if (myRole !== "moderator" && myRole !== "admin" && !(await isAdmin(currentUserId!))) {
     res.status(403).json({ error: "Moderator access required" });
     return;
   }

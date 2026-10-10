@@ -377,7 +377,7 @@ router.patch("/:projectId/applications/:applicationId", requireAuth, strictWrite
   });
 });
 
-// Get messages
+// Get messages — members or platform admin (oversight).
 router.get("/:projectId/messages", requireAuth, async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
   const id = parseInt(getParam(req, "projectId"));
@@ -386,7 +386,7 @@ router.get("/:projectId/messages", requireAuth, async (req: Request, res: Respon
 
   const isMember = await db.select().from(projectMembersTable)
     .where(and(eq(projectMembersTable.projectId, id), eq(projectMembersTable.clerkId, userId!))).limit(1);
-  if (!isMember.length) {
+  if (!isMember.length && !(await isAdmin(userId!))) {
     res.status(403).json({ error: "Must be a project member" });
     return;
   }
@@ -408,7 +408,7 @@ router.get("/:projectId/messages", requireAuth, async (req: Request, res: Respon
   res.json(enriched);
 });
 
-// Send message
+// Send message — members or platform admin (oversight).
 router.post("/:projectId/messages", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
   const id = parseInt(getParam(req, "projectId"));
@@ -416,7 +416,7 @@ router.post("/:projectId/messages", requireAuth, strictWriteLimit(), async (req:
 
   const isMember = await db.select().from(projectMembersTable)
     .where(and(eq(projectMembersTable.projectId, id), eq(projectMembersTable.clerkId, userId!))).limit(1);
-  if (!isMember.length) {
+  if (!isMember.length && !(await isAdmin(userId!))) {
     res.status(403).json({ error: "Must be a project member" });
     return;
   }
@@ -449,7 +449,7 @@ router.get("/:projectId/events", requireAuth, async (req: Request, res: Response
   res.json(enriched);
 });
 
-// Create project event
+// Create project event — members or platform admin.
 router.post("/:projectId/events", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
   const id = parseInt(getParam(req, "projectId"));
@@ -457,7 +457,7 @@ router.post("/:projectId/events", requireAuth, strictWriteLimit(), async (req: R
 
   const isMember = await db.select().from(projectMembersTable)
     .where(and(eq(projectMembersTable.projectId, id), eq(projectMembersTable.clerkId, userId!))).limit(1);
-  if (!isMember.length) {
+  if (!isMember.length && !(await isAdmin(userId!))) {
     res.status(403).json({ error: "Must be a project member" });
     return;
   }
