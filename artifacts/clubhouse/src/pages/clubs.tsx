@@ -35,6 +35,7 @@ function assetUrl(path?: string | null) {
 
 function UploadButton({ accept, label, onUploaded }: { accept: string; label: string; onUploaded: (path: string, name: string) => void }) {
   const { uploadFile, isUploading } = useUpload();
+  const { toast } = useToast();
   return (
     <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted">
       <ImagePlus className="h-4 w-4" /> {isUploading ? "Uploading…" : label}
@@ -47,7 +48,11 @@ function UploadButton({ accept, label, onUploaded }: { accept: string; label: st
           const file = event.target.files?.[0];
           if (!file) return;
           const uploaded = await uploadFile(file);
-          if (uploaded) onUploaded(uploaded.objectPath, file.name);
+          if (uploaded) {
+            onUploaded(uploaded.objectPath, file.name);
+          } else {
+            toast({ title: "Upload failed", description: "Check the file type/size, or ask an admin whether uploads are configured.", variant: "destructive" });
+          }
           event.target.value = "";
         }}
       />
