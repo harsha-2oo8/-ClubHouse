@@ -20,7 +20,11 @@ const config = getConfig();
 // Security headers. CSP is disabled by default: /api/__clerk proxies Clerk
 // frontend assets and a restrictive CSP here could break sign-in flows.
 // Revisit only with an explicit allowlist (see docs/SECURITY.md).
-app.use(helmet({ contentSecurityPolicy: false }));
+// CORP must stay OFF: the SPA (Vercel) embeds API-served images cross-origin
+// via plain <img> tags (no-cors mode), which a same-origin CORP would block
+// while leaving CORS fetches working — exactly the "loads in a tab, broken
+// in the page" symptom.
+app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
 
 app.use(
   pinoHttp({
