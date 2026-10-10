@@ -16,6 +16,25 @@ import { canDeleteClub, canDeleteClubManagementEvent, isAdmin } from "../lib/pol
 import { collegeCreateAllowed } from "../lib/collegeRbac";
 import { recordAuditLog } from "../lib/audit";
 import { deleteObject, isGcsConfigured, objectNameFromPath } from "../lib/gcsStorage";
+import { deleteObject as sbDeleteObject, isSupabaseConfigured, objectNameFromPath as sbObjectNameFromPath } from "../lib/supabaseStorage";
+
+/** Best-effort removal of a stored asset on either backend — never throws. */
+async function deleteStoredAsset(objectPath: string | null | undefined): Promise<void> {
+  if (!objectPath) return;
+  const sbName = sbObjectNameFromPath(objectPath);
+  if (sbName && isSupabaseConfigured()) {
+    try {
+      await sbDeleteObject(sbName);
+      return;
+    } catch { /* fall through to GCS attempt */ }
+  }
+  const gcsName = objectNameFromPath(objectPath);
+  if (gcsName && isGcsConfigured()) {
+    try {
+      await deleteObject(gcsName);
+    } catch { /* ignore */ }
+  }
+}
 
 const router = Router();
 
@@ -201,14 +220,9 @@ router.delete("/:clubId", requireAuth, strictWriteLimit(), async (req: Request, 
   await db.delete(clubManagementEventsTable).where(eq(clubManagementEventsTable.clubId, id));
   await db.delete(clubsTable).where(eq(clubsTable.id, id));
   // Best-effort storage cleanup — never fail the resource delete over files.
-  if (isGcsConfigured()) {
-    const paths = [before.logoPath, before.brochurePath];
-    await Promise.all(paths.map(async (p) => {
-      const name = objectNameFromPath(p);
-      if (!name) return;
-      try { await deleteObject(name); } catch { /* ignore */ }
-    }));
-  }
+  await Promise.all(
+    [before.logoPath, before.brochurePath].map((p) => deleteStoredAsset(p)),
+  );
   await recordAuditLog(req, {
     action: userId === before.createdBy ? "CREATOR_DELETED_CLUB" : "ADMIN_DELETED_CLUB",
     entityType: "club",
@@ -329,12 +343,7 @@ router.delete("/:clubId/events/:eventId", requireAuth, strictWriteLimit(), async
     return;
   }
   await db.delete(clubManagementEventsTable).where(eq(clubManagementEventsTable.id, eventId));
-  if (isGcsConfigured()) {
-    const name = objectNameFromPath(before.bannerPath);
-    if (name) {
-      try { await deleteObject(name); } catch { /* ignore */ }
-    }
-  }
+  await deleteStoredAsset(before.bannerPath);
   await recordAuditLog(req, {
     action: "CREATOR_DELETED_CLUB_EVENT",
     entityType: "club_event",

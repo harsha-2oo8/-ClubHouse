@@ -29,8 +29,13 @@ function assetUrl(path?: string | null) {
   if (!path) return null;
   if (path.startsWith("http")) return path;
   // Same-origin in single-host dev; absolute API base in split prod deploys.
+  // Stored objectPaths (/sb/…, /gcs/…) map onto their serving routes;
+  // legacy /objects/… values keep working where that backend exists.
   const base = appConfig.apiUrl.replace(/\/+$/, "");
-  return `${base}/api/storage/objects/${path.replace(/^\/objects\//, "")}`;
+  const routePath = path.startsWith("/sb/") || path.startsWith("/gcs/")
+    ? path.replace(/^\//, "")
+    : `objects/${path.replace(/^\/objects\//, "")}`;
+  return `${base}/api/storage/${routePath}`;
 }
 
 function UploadButton({ accept, label, onUploaded }: { accept: string; label: string; onUploaded: (path: string, name: string) => void }) {

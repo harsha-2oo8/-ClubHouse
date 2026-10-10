@@ -108,6 +108,11 @@ function load() {
       clientEmail: optional("GCS_CLIENT_EMAIL"),
       privateKey: normalizePrivateKey(optional("GCS_PRIVATE_KEY")),
     },
+    supabase: {
+      url: optional("SUPABASE_URL"),
+      serviceRoleKey: optional("SUPABASE_SERVICE_ROLE_KEY"),
+      bucket: optional("SUPABASE_STORAGE_BUCKET", "clubhouse-uploads"),
+    },
     rateLimit: {
       windowMs: intVar("RATE_LIMIT_WINDOW_MS", 60_000, 1000),
       writeMax: intVar("RATE_LIMIT_WRITE_MAX", 20, 1),

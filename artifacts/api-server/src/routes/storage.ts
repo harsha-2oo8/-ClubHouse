@@ -21,6 +21,12 @@ import {
   validateUploadInput,
   type ObjectVisibility,
 } from '../lib/gcsStorage';
+import {
+  buildObjectName as sbBuildObjectName,
+  createSignedUploadUrl as sbCreateSignedUploadUrl,
+  downloadObject as sbDownloadObject,
+  isSupabaseConfigured,
+} from '../lib/supabaseStorage';
 import { isAdmin } from '../lib/policy';
 import { getAuth } from '@clerk/express';
 import { strictWriteLimit } from '../lib/rateLimit';
@@ -36,9 +42,10 @@ const objectStorageService = new ObjectStorageService();
  * NOT the file. Then uploads the file directly to the returned presigned URL.
  * Requires auth so public callers cannot mint write-capable URLs.
  *
- * Backend selection: GCS service-account flow whenever GCS_* env is
- * configured (all non-Replit deploys); otherwise the legacy Replit sidecar
- * flow; otherwise 503 with a configuration error.
+ * Backend selection: Supabase storage whenever SUPABASE_* env is
+ * configured (preferred when running on Supabase); else the GCS
+ * service-account flow; otherwise the legacy Replit sidecar flow;
+ * otherwise 503 with a configuration error.
  */
 router.post(
   '/storage/uploads/request-url',
@@ -71,6 +78,19 @@ router.post(
         return;
       }
 
+      if (isSupabaseConfigured()) {
+        const objectName = sbBuildObjectName({ visibility, uploaderId: userId, fileName: name });
+        const uploadURL = await sbCreateSignedUploadUrl({ objectName, contentType });
+        res.json(
+          RequestUploadUrlResponse.parse({
+            uploadURL,
+            objectPath: `/sb/${objectName}`,
+            metadata: { name, size, contentType },
+          }),
+        );
+        return;
+      }
+
       if (isGcsConfigured()) {
         const objectName = buildObjectName({ visibility, uploaderId: userId, fileName: name });
         const uploadURL = await createSignedUploadUrl({ objectName, contentType });
@@ -98,7 +118,9 @@ router.post(
     } catch (error) {
       req.log.error({ err: error }, 'Error generating upload URL');
       const message = error instanceof Error ? error.message : '';
-      if (message.startsWith('GCS_UPLOAD_NOT_CONFIGURED') || message.includes('not set')) {
+      if (message.startsWith('GCS_UPLOAD_NOT_CONFIGURED') ||
+          message.startsWith('SUPABASE_UPLOAD_NOT_CONFIGURED') ||
+          message.includes('not set')) {
         res.status(503).json({ error: 'File uploads are not configured on this server.' });
         return;
       }
@@ -154,6 +176,54 @@ router.get(
         return;
       }
       req.log.error({ err: error }, 'Error serving GCS object');
+      res.status(500).json({ error: 'Failed to serve object' });
+    }
+  },
+);
+
+/**
+ * GET /storage/sb/*
+ *
+ * Serve objects stored via the Supabase flow. Same access model as /gcs/*:
+ * `public/*` openly readable; `private/*` requires the uploader's session
+ * or a platform admin. Traversal is rejected.
+ */
+router.get(
+  '/storage/sb/*path',
+  async (req: Request, res: Response) => {
+    try {
+      const wildcardPath = getParam(req, "path");
+      let objectName: string;
+      try {
+        objectName = normalizeObjectName(wildcardPath);
+      } catch {
+        res.status(400).json({ error: 'Invalid object path' });
+        return;
+      }
+      const isPublic = objectName.startsWith('public/');
+      if (!isPublic) {
+        const { userId } = getAuth(req);
+        if (!userId) {
+          res.status(401).json({ error: 'Unauthorized' });
+          return;
+        }
+        if (!canReadObject(objectName, userId, await isAdmin(userId))) {
+          res.status(403).json({ error: 'Forbidden' });
+          return;
+        }
+      }
+      const { buffer, contentType } = await sbDownloadObject(objectName);
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Length', String(buffer.length));
+      res.setHeader('Cache-Control', `${isPublic ? 'public' : 'private'}, max-age=3600`);
+      res.status(200).end(buffer);
+    } catch (error) {
+      const statusCode = (error as { statusCode?: number }).statusCode;
+      if (statusCode === 404) {
+        res.status(404).json({ error: 'Object not found' });
+        return;
+      }
+      req.log.error({ err: error }, 'Error serving Supabase object');
       res.status(500).json({ error: 'Failed to serve object' });
     }
   },
