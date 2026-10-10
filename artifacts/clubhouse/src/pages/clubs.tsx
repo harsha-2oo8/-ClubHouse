@@ -366,6 +366,8 @@ export function ClubAdmin() {
   const [eventToEdit, setEventToEdit] = useState<ClubManagementEvent | null>(null);
   const [editEventTitle, setEditEventTitle] = useState("");
   const [editEventDate, setEditEventDate] = useState("");
+  const [editEventDescription, setEditEventDescription] = useState("");
+  const [editEventBanner, setEditEventBanner] = useState<string | null>(null);
 
   if (isLoading || profileLoading) return <AppLayout><div className="mx-auto max-w-5xl p-6"><Skeleton className="h-96 rounded-xl" /></div></AppLayout>;
   if (!club) return <AppLayout><div className="p-6 text-center">Club not found.</div></AppLayout>;
@@ -397,6 +399,8 @@ export function ClubAdmin() {
   const startEditEvent = (event: ClubManagementEvent) => {
     setEventToEdit(event);
     setEditEventTitle(event.title);
+    setEditEventDescription(event.description ?? "");
+    setEditEventBanner(null);
     const d = new Date(event.scheduledAt);
     const pad = (n: number) => String(n).padStart(2, "0");
     setEditEventDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
@@ -410,7 +414,12 @@ export function ClubAdmin() {
       await editEvent.mutateAsync({
         clubId: id,
         eventId: eventToEdit.id,
-        data: { title: editEventTitle.trim(), scheduledAt: new Date(editEventDate).toISOString() },
+        data: {
+          title: editEventTitle.trim(),
+          scheduledAt: new Date(editEventDate).toISOString(),
+          description: editEventDescription.trim() || null,
+          ...(editEventBanner ? { bannerPath: editEventBanner } : {}),
+        },
       });
       refresh();
       toast({ title: "Event updated" });
@@ -464,6 +473,19 @@ export function ClubAdmin() {
               <div>
                 <label className="mb-2 block text-sm font-medium">Date &amp; time</label>
                 <Input type="datetime-local" value={editEventDate} onChange={(e) => setEditEventDate(e.target.value)} data-testid="input-edit-club-event-date" />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium">Description <span className="text-muted-foreground font-normal">(optional)</span></label>
+                <Textarea value={editEventDescription} onChange={(e) => setEditEventDescription(e.target.value)} rows={3} data-testid="input-edit-club-event-desc" />
+              </div>
+              <div>
+                <p className="mb-2 text-sm font-medium">Banner <span className="text-muted-foreground font-normal">(optional)</span></p>
+                <UploadButton
+                  accept="image/png,image/jpeg,image/webp"
+                  label={editEventBanner || eventToEdit?.bannerPath ? "Replace banner" : "Upload banner"}
+                  currentUrl={!editEventBanner ? assetUrl(eventToEdit?.bannerPath ?? null) : null}
+                  onUploaded={(path) => setEditEventBanner(path)}
+                />
               </div>
               <Button onClick={() => void handleEditEvent()} disabled={editEvent.isPending} className="w-full" data-testid="button-save-club-event">
                 {editEvent.isPending ? "Saving..." : "Save changes"}
