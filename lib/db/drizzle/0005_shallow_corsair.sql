@@ -1,0 +1,1 @@
+ALTER TABLE "clubs" ADD COLUMN "banner_path" text;

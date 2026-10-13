@@ -92,6 +92,7 @@ async function formatClub(club: typeof clubsTable.$inferSelect, includeDetails =
     logoPath: club.logoPath,
     brochurePath: club.brochurePath,
     brochureName: club.brochureName,
+    bannerPath: club.bannerPath,
     createdBy: club.createdBy,
     createdByName: owner?.name ?? "Club administrator",
     status: club.status,
@@ -133,7 +134,7 @@ router.get("/", async (_req: Request, res: Response) => {
 router.post("/", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);
   const college = await getPrimaryCollege();
-  const { name, description, logoPath, brochurePath, brochureName, createdBy: requestedCreator } = req.body ?? {};
+  const { name, description, logoPath, brochurePath, brochureName, bannerPath, createdBy: requestedCreator } = req.body ?? {};
   if (!college) {
     res.status(400).json({ error: "No approved college is configured yet" });
     return;
@@ -169,6 +170,7 @@ router.post("/", requireAuth, strictWriteLimit(), async (req: Request, res: Resp
     logoPath: logoPath ?? null,
     brochurePath: brochurePath ?? null,
     brochureName: brochureName ?? null,
+    bannerPath: bannerPath ?? null,
     createdBy: creatorId,
     status: "published",
   }).returning();
@@ -195,13 +197,14 @@ router.get("/:clubId", async (req: Request, res: Response) => {
 router.patch("/:clubId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
   const id = await getManagedClub(req, res);
   if (!id) return;
-  const { name, description, logoPath, brochurePath, brochureName } = req.body ?? {};
+  const { name, description, logoPath, brochurePath, brochureName, bannerPath } = req.body ?? {};
   const values: Partial<typeof clubsTable.$inferInsert> = { updatedAt: new Date() };
   if (typeof name === "string" && name.trim().length >= 2) values.name = name.trim();
   if (typeof description === "string" && description.trim().length >= 10) values.description = description.trim();
   if (logoPath !== undefined) values.logoPath = logoPath;
   if (brochurePath !== undefined) values.brochurePath = brochurePath;
   if (brochureName !== undefined) values.brochureName = brochureName;
+  if (bannerPath !== undefined) values.bannerPath = bannerPath;
   const [club] = await db.update(clubsTable).set(values).where(eq(clubsTable.id, id)).returning();
   res.json(await formatClub(club, true));
 });
@@ -223,7 +226,7 @@ router.delete("/:clubId", requireAuth, strictWriteLimit(), async (req: Request, 
   await db.delete(clubsTable).where(eq(clubsTable.id, id));
   // Best-effort storage cleanup — never fail the resource delete over files.
   await Promise.all(
-    [before.logoPath, before.brochurePath].map((p) => deleteStoredAsset(p)),
+    [before.logoPath, before.brochurePath, before.bannerPath].map((p) => deleteStoredAsset(p)),
   );
   await recordAuditLog(req, {
     action: userId === before.createdBy ? "CREATOR_DELETED_CLUB" : "ADMIN_DELETED_CLUB",

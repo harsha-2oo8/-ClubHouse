@@ -98,20 +98,39 @@ function UploadButton({ accept, label, onUploaded, currentUrl }: {
 
 function ClubCard({ club }: { club: Club }) {
   const logo = assetUrl(club.logoPath);
+  const banner = assetUrl(club.bannerPath);
   return (
     <Link href={`/clubs/${club.id}`}>
-      <Card className="h-full cursor-pointer transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md">
-        <CardContent className="p-5">
-          <div className="mb-4 flex items-start gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10 text-xl font-bold text-primary">
-              {logo ? <img src={logo} alt="" className="h-full w-full object-cover" /> : club.name.slice(0, 1).toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <h2 className="truncate font-semibold">{club.name}</h2>
-              <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{club.description}</p>
-            </div>
+      <Card className="h-full cursor-pointer overflow-hidden transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md" data-testid={`card-club-${club.id}`}>
+        {banner ? (
+          <div className="relative">
+            <img src={banner} alt="" className="h-32 w-full object-cover" loading="lazy" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+            {logo && (
+              <img
+                src={logo}
+                alt={`${club.name} logo`}
+                className="absolute -bottom-6 left-5 h-14 w-14 rounded-2xl border-4 border-card object-cover shadow-lg"
+                loading="lazy"
+              />
+            )}
           </div>
-          <div className="flex gap-4 text-xs text-muted-foreground">
+        ) : null}
+        <CardContent className={banner ? "p-5 pt-4" : "p-5"}>
+          <div className={banner && logo ? "ml-20 min-w-0" : "min-w-0"}>
+            <h2 className="truncate font-semibold">{club.name}</h2>
+            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{club.description}</p>
+          </div>
+          {!banner && (
+            <div className="mb-4 flex items-start gap-4">
+              {logo && (
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10">
+                  <img src={logo} alt="" className="h-full w-full object-cover" loading="lazy" />
+                </div>
+              )}
+            </div>
+          )}
+          <div className="mt-3 flex gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {club.memberCount} members</span>
             <span className="flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" /> {club.eventCount} events</span>
           </div>
@@ -155,6 +174,7 @@ export function ClubRegister() {
   const [logoPath, setLogoPath] = useState<string | null>(null);
   const [brochurePath, setBrochurePath] = useState<string | null>(null);
   const [brochureName, setBrochureName] = useState<string | null>(null);
+  const [bannerPath, setBannerPath] = useState<string | null>(null);
   const [creatorQuery, setCreatorQuery] = useState("");
   const [creator, setCreator] = useState<{ clerkId: string; name: string } | null>(null);
 
@@ -179,7 +199,7 @@ export function ClubRegister() {
     try {
       const club = await createClub.mutateAsync({
         data: {
-          name, description, logoPath, brochurePath, brochureName,
+          name, description, logoPath, brochurePath, brochureName, bannerPath,
           ...(isPlatformAdmin && creator ? { createdBy: creator.clerkId } : {}),
         },
       });
@@ -241,9 +261,10 @@ export function ClubRegister() {
                 </div>
               )}
               <div className="grid gap-4 sm:grid-cols-2">
-                <div><p className="mb-2 text-sm font-medium">Club logo</p><UploadButton accept="image/png,image/jpeg,image/webp" label={logoPath ? "Logo uploaded" : "Upload logo"} onUploaded={(path) => setLogoPath(path)} />{logoPath && <Badge variant="secondary" className="ml-2">Ready</Badge>}</div>
+                <div><p className="mb-2 text-sm font-medium">Club logo <span className="text-muted-foreground font-normal">(optional)</span></p><UploadButton accept="image/png,image/jpeg,image/webp" label={logoPath ? "Logo uploaded" : "Upload logo"} onUploaded={(path) => setLogoPath(path)} />{logoPath && <Badge variant="secondary" className="ml-2">Ready</Badge>}</div>
                 <div><p className="mb-2 text-sm font-medium">Brochure or invite</p><UploadButton accept=".pdf,image/png,image/jpeg" label={brochureName ?? "Upload brochure"} onUploaded={(path, fileName) => { setBrochurePath(path); setBrochureName(fileName); }} />{brochurePath && <Badge variant="secondary" className="ml-2">Ready</Badge>}</div>
               </div>
+              <div><p className="mb-2 text-sm font-medium">Card banner <span className="text-muted-foreground font-normal">(optional — backdrop behind the club card)</span></p><UploadButton accept="image/png,image/jpeg,image/webp" label={bannerPath ? "Banner uploaded" : "Upload banner"} onUploaded={(path) => setBannerPath(path)} />{bannerPath && <Badge variant="secondary" className="ml-2">Ready</Badge>}</div>
               <Button type="submit" disabled={createClub.isPending} className="w-full sm:w-auto">{createClub.isPending ? "Registering…" : "Register club"}</Button>
             </form>
           </CardContent>
@@ -267,6 +288,7 @@ export function ClubProfile() {
   if (!club) return <AppLayout><div className="p-6 text-center text-muted-foreground">Club not found.</div></AppLayout>;
   const logo = assetUrl(club.logoPath);
   const brochure = assetUrl(club.brochurePath);
+  const banner = assetUrl(club.bannerPath);
   const members = (club.members ?? []) as unknown as Array<Record<string, unknown>>;
   const isMember = Boolean(userId && members.some((m) => m.clerkId === userId));
   const isOwner = Boolean(userId && club.createdBy === userId);
@@ -286,10 +308,19 @@ export function ClubProfile() {
       <div className="mx-auto max-w-5xl p-6">
         <Link href="/clubs" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> All clubs</Link>
         <Card className="mb-6 overflow-hidden">
-          <div className="h-28 bg-gradient-to-r from-primary/15 via-primary/5 to-transparent" />
+          {banner ? (
+            <div className="relative h-44">
+              <img src={banner} alt="" className="h-full w-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+            </div>
+          ) : (
+            <div className="h-28 bg-gradient-to-r from-primary/15 via-primary/5 to-transparent" />
+          )}
           <CardContent className="-mt-10 p-6">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
-              <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border-4 border-background bg-primary/10 text-3xl font-bold text-primary shadow">{logo ? <img src={logo} alt="" className="h-full w-full object-cover" /> : club.name.slice(0, 1)}</div>
+              {logo && (
+                <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border-4 border-background bg-primary/10 shadow"><img src={logo} alt={`${club.name} logo`} className="h-full w-full object-cover" /></div>
+              )}
               <div className="flex-1"><h1 className="text-3xl font-bold">{club.name}</h1><p className="mt-2 max-w-2xl text-muted-foreground">{club.description}</p></div>
               {brochure && <a href={brochure} target="_blank" rel="noreferrer"><Button variant="outline" className="gap-2"><FileText className="h-4 w-4" /> {club.brochureName || "Club brochure"}</Button></a>}
               <Link href={`/clubs/${club.id}/admin`}><Button variant="outline" size="icon" aria-label="Club settings"><Settings className="h-4 w-4" /></Button></Link>
@@ -355,6 +386,7 @@ export function ClubAdmin() {
   const [logoPath, setLogoPath] = useState<string | null>(null);
   const [brochurePath, setBrochurePath] = useState<string | null>(null);
   const [brochureName, setBrochureName] = useState<string | null>(null);
+  const [bannerPath, setBannerPath] = useState<string | null>(null);
   const [memberName, setMemberName] = useState("");
   const [memberRole, setMemberRole] = useState("");
   const [eventTitle, setEventTitle] = useState("");
@@ -391,7 +423,7 @@ export function ClubAdmin() {
   }
 
   const refresh = () => qc.invalidateQueries({ queryKey: getGetClubQueryKey(id) });
-  const saveProfile = async () => { try { await updateClub.mutateAsync({ clubId: id, data: { name: name || club.name, description: description || club.description, logoPath: logoPath ?? club.logoPath, brochurePath: brochurePath ?? club.brochurePath, brochureName: brochureName ?? club.brochureName } }); refresh(); toast({ title: "Club profile saved" }); } catch { toast({ title: "Could not save profile", variant: "destructive" }); } };
+  const saveProfile = async () => { try { await updateClub.mutateAsync({ clubId: id, data: { name: name || club.name, description: description || club.description, logoPath: logoPath ?? club.logoPath, brochurePath: brochurePath ?? club.brochurePath, brochureName: brochureName ?? club.brochureName, bannerPath: bannerPath ?? club.bannerPath } }); refresh(); toast({ title: "Club profile saved" }); } catch { toast({ title: "Could not save profile", variant: "destructive" }); } };
   const saveMember = async (event: React.FormEvent) => { event.preventDefault(); try { await addMember.mutateAsync({ clubId: id, data: { name: memberName, role: memberRole } }); setMemberName(""); setMemberRole(""); refresh(); } catch { toast({ title: "Could not add team member", variant: "destructive" }); } };
   const saveEvent = async (event: React.FormEvent) => { event.preventDefault(); try { await addEvent.mutateAsync({ clubId: id, data: { title: eventTitle, scheduledAt: new Date(eventDate).toISOString(), description: eventDescription || null, bannerPath: eventBanner } }); setEventTitle(""); setEventDate(""); setEventDescription(""); setEventBanner(null); refresh(); } catch { toast({ title: "Could not create event", variant: "destructive" }); } };
   const handleDeleteClub = async () => { try { await removeClub.mutateAsync({ clubId: id }); toast({ title: "Club deleted" }); setDeleteClubOpen(false); navigate("/clubs"); } catch { toast({ title: "Could not delete club", variant: "destructive" }); } };
@@ -433,7 +465,7 @@ export function ClubAdmin() {
       <div className="mx-auto max-w-5xl p-6">
         <div className="mb-6 flex items-center justify-between"><div><Link href={`/clubs/${id}`} className="mb-2 inline-flex items-center gap-2 text-sm text-muted-foreground"><ArrowLeft className="h-4 w-4" /> Back to club</Link><h1 className="text-3xl font-bold">Manage {club.name}</h1></div><Badge variant="secondary" className="gap-1"><Settings className="h-3.5 w-3.5" /> Admin</Badge></div>
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card><CardHeader><CardTitle>Club profile</CardTitle></CardHeader><CardContent className="space-y-4"><Input placeholder={club.name} value={name} onChange={(e) => setName(e.target.value)} /><Textarea placeholder={club.description} value={description} onChange={(e) => setDescription(e.target.value)} rows={5} /><div className="flex flex-wrap gap-2"><UploadButton accept="image/png,image/jpeg,image/webp" label={logoPath || club.logoPath ? "Replace logo" : "Upload logo"} currentUrl={!logoPath ? assetUrl(club.logoPath) : null} onUploaded={(path) => setLogoPath(path)} /><UploadButton accept=".pdf,image/png,image/jpeg" label={brochureName || club.brochureName || "Upload brochure"} currentUrl={!brochurePath ? assetUrl(club.brochurePath) : null} onUploaded={(path, fileName) => { setBrochurePath(path); setBrochureName(fileName); }} /></div><Button onClick={saveProfile} disabled={updateClub.isPending}>Save profile</Button></CardContent></Card>
+          <Card><CardHeader><CardTitle>Club profile</CardTitle></CardHeader><CardContent className="space-y-4"><Input placeholder={club.name} value={name} onChange={(e) => setName(e.target.value)} /><Textarea placeholder={club.description} value={description} onChange={(e) => setDescription(e.target.value)} rows={5} /><div className="flex flex-wrap gap-2"><UploadButton accept="image/png,image/jpeg,image/webp" label={logoPath || club.logoPath ? "Replace logo" : "Upload logo"} currentUrl={!logoPath ? assetUrl(club.logoPath) : null} onUploaded={(path) => setLogoPath(path)} /><UploadButton accept=".pdf,image/png,image/jpeg" label={brochureName || club.brochureName || "Upload brochure"} currentUrl={!brochurePath ? assetUrl(club.brochurePath) : null} onUploaded={(path, fileName) => { setBrochurePath(path); setBrochureName(fileName); }} /><UploadButton accept="image/png,image/jpeg,image/webp" label={bannerPath || club.bannerPath ? "Replace banner" : "Upload banner"} currentUrl={!bannerPath ? assetUrl(club.bannerPath) : null} onUploaded={(path) => setBannerPath(path)} /></div><Button onClick={saveProfile} disabled={updateClub.isPending}>Save profile</Button></CardContent></Card>
           <Card><CardHeader><CardTitle>Team members</CardTitle></CardHeader><CardContent><form onSubmit={saveMember} className="mb-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><Input placeholder="Name" value={memberName} onChange={(e) => setMemberName(e.target.value)} required /><Input placeholder="Role" value={memberRole} onChange={(e) => setMemberRole(e.target.value)} required /><Button type="submit" size="icon" aria-label="Add team member"><Plus className="h-4 w-4" /></Button></form><div className="space-y-2">{(club.members ?? []).map((member: ClubMember) => <div key={member.id} className="flex items-center justify-between rounded-lg border p-3"><div><p className="font-medium">{member.name}</p><p className="text-sm text-muted-foreground">{member.role}</p></div><Button variant="ghost" size="icon" onClick={async () => { await deleteMember.mutateAsync({ clubId: id, memberId: member.id }); refresh(); }} aria-label={`Remove ${member.name}`}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>)}</div></CardContent></Card>
           <Card><CardHeader><CardTitle>Join requests {typedJoinRequests.length > 0 && <Badge className="ml-2">{typedJoinRequests.length}</Badge>}</CardTitle></CardHeader><CardContent>{typedJoinRequests.length === 0 ? <p className="text-sm text-muted-foreground">No pending requests.</p> : <div className="space-y-2">{typedJoinRequests.map((r) => <div key={String(r.id)} className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border p-3" data-testid={`card-club-join-${r.id}`}><div className="flex-1 min-w-0"><p className="font-medium text-sm" data-testid={`text-club-request-name-${r.id}`}>{String(r.userName || "Student")}</p></div><div className="flex gap-2 flex-shrink-0"><Button size="sm" className="gap-1.5 bg-green-600 hover:bg-green-700" onClick={() => void handleJoinRequest(Number(r.id), "approved")} data-testid={`button-approve-club-join-${r.id}`}>Approve</Button><Button size="sm" variant="outline" onClick={() => void handleJoinRequest(Number(r.id), "rejected")} data-testid={`button-reject-club-join-${r.id}`}>Reject</Button></div></div>)}</div>}</CardContent></Card>
           <Card className="lg:col-span-2"><CardHeader><CardTitle>Events</CardTitle></CardHeader><CardContent><form onSubmit={saveEvent} className="grid gap-3 md:grid-cols-2"><Input placeholder="Event title" value={eventTitle} onChange={(e) => setEventTitle(e.target.value)} required /><Input type="datetime-local" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required /><Textarea className="md:col-span-2" placeholder="Event description (optional)" value={eventDescription} onChange={(e) => setEventDescription(e.target.value)} /><div className="flex items-center gap-3"><UploadButton accept="image/png,image/jpeg,image/webp" label={eventBanner ? "Banner uploaded" : "Upload event banner"} onUploaded={(path) => setEventBanner(path)} /><Button type="submit" disabled={addEvent.isPending} className="gap-2"><Plus className="h-4 w-4" /> Create event</Button></div></form><div className="mt-6 grid gap-3 md:grid-cols-2">{(club.events ?? []).map((event: ClubManagementEvent) => <div key={event.id} className="rounded-lg border p-4"><div className="flex justify-between gap-3"><div><p className="font-semibold">{event.title}</p><p className="text-sm text-muted-foreground">{new Date(event.scheduledAt).toLocaleString()}</p></div><div className="flex gap-1 flex-shrink-0"><Button variant="ghost" size="icon" onClick={() => startEditEvent(event)} aria-label={`Edit ${event.title}`} data-testid={`button-edit-club-event-${event.id}`}><Pencil className="h-4 w-4" /></Button><Button variant="ghost" size="icon" onClick={() => setEventToDelete(event)} aria-label={`Delete ${event.title}`} data-testid={`button-delete-club-event-${event.id}`}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></div>{event.description && <p className="mt-2 text-sm">{event.description}</p>}</div>)}</div></CardContent></Card>

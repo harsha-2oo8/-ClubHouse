@@ -36,6 +36,13 @@
       "when": 1791607560205,
       "tag": "0004_steep_roland_deschain",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791894459852,
+      "tag": "0005_shallow_corsair",
+      "breakpoints": true
     }
   ]
 }

@@ -2326,6 +2326,7 @@ components:
         logoPath:      { type: ["string", "null"] }
         brochurePath:  { type: ["string", "null"] }
         brochureName:  { type: ["string", "null"] }
+        bannerPath:    { type: ["string", "null"] }
         createdBy:     { type: string }
         createdByName: { type: string }
         status:        { type: string, enum: [published] }
@@ -2350,6 +2351,7 @@ components:
         brochurePath:  { type: ["string", "null"] }
         brochureName:  { type: ["string", "null"] }
         createdBy:     { type: string, description: "Admin-only: attribute the club to another user's Clerk ID. Ignored for non-admins." }
+        bannerPath:    { type: ["string", "null"] }
 
     ClubUpdate:
       type: object
@@ -2359,6 +2361,7 @@ components:
         logoPath:      { type: ["string", "null"] }
         brochurePath:  { type: ["string", "null"] }
         brochureName:  { type: ["string", "null"] }
+        bannerPath:    { type: ["string", "null"] }
 
     ClubMember:
       type: object

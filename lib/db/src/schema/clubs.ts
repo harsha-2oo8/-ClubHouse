@@ -11,6 +11,7 @@ export const clubsTable = pgTable("clubs", {
   logoPath: text("logo_path"),
   brochurePath: text("brochure_path"),
   brochureName: text("brochure_name"),
+  bannerPath: text("banner_path"),
   createdBy: text("created_by").notNull(),
   status: text("status").notNull().default("published"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

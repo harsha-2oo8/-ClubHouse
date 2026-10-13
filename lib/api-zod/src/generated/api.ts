@@ -827,6 +827,7 @@ export const ListClubsResponseItem = zod.object({
   "logoPath": zod.string().nullish(),
   "brochurePath": zod.string().nullish(),
   "brochureName": zod.string().nullish(),
+  "bannerPath": zod.string().nullish(),
   "createdBy": zod.string(),
   "createdByName": zod.string(),
   "status": zod.enum(['published']),
@@ -872,7 +873,8 @@ export const CreateClubBody = zod.object({
   "logoPath": zod.string().nullish(),
   "brochurePath": zod.string().nullish(),
   "brochureName": zod.string().nullish(),
-  "createdBy": zod.string().optional().describe('Admin-only: attribute the club to another user\'s Clerk ID. Ignored for non-admins.')
+  "createdBy": zod.string().optional().describe('Admin-only: attribute the club to another user\'s Clerk ID. Ignored for non-admins.'),
+  "bannerPath": zod.string().nullish()
 })
 
 export const CreateClubResponse = zod.object({
@@ -883,6 +885,7 @@ export const CreateClubResponse = zod.object({
   "logoPath": zod.string().nullish(),
   "brochurePath": zod.string().nullish(),
   "brochureName": zod.string().nullish(),
+  "bannerPath": zod.string().nullish(),
   "createdBy": zod.string(),
   "createdByName": zod.string(),
   "status": zod.enum(['published']),
@@ -927,6 +930,7 @@ export const GetClubResponse = zod.object({
   "logoPath": zod.string().nullish(),
   "brochurePath": zod.string().nullish(),
   "brochureName": zod.string().nullish(),
+  "bannerPath": zod.string().nullish(),
   "createdBy": zod.string(),
   "createdByName": zod.string(),
   "status": zod.enum(['published']),
@@ -974,7 +978,8 @@ export const UpdateClubBody = zod.object({
   "description": zod.string().min(updateClubBodyDescriptionMin).optional(),
   "logoPath": zod.string().nullish(),
   "brochurePath": zod.string().nullish(),
-  "brochureName": zod.string().nullish()
+  "brochureName": zod.string().nullish(),
+  "bannerPath": zod.string().nullish()
 })
 
 export const UpdateClubResponse = zod.object({
@@ -985,6 +990,7 @@ export const UpdateClubResponse = zod.object({
   "logoPath": zod.string().nullish(),
   "brochurePath": zod.string().nullish(),
   "brochureName": zod.string().nullish(),
+  "bannerPath": zod.string().nullish(),
   "createdBy": zod.string(),
   "createdByName": zod.string(),
   "status": zod.enum(['published']),

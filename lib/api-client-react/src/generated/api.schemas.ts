@@ -382,6 +382,8 @@ export interface Club {
   brochurePath?: string | null;
   /** @nullable */
   brochureName?: string | null;
+  /** @nullable */
+  bannerPath?: string | null;
   createdBy: string;
   createdByName: string;
   status: ClubStatus;
@@ -406,6 +408,8 @@ export interface ClubInput {
   brochureName?: string | null;
   /** Admin-only: attribute the club to another user's Clerk ID. Ignored for non-admins. */
   createdBy?: string;
+  /** @nullable */
+  bannerPath?: string | null;
 }
 
 export interface ClubUpdate {
@@ -419,6 +423,8 @@ export interface ClubUpdate {
   brochurePath?: string | null;
   /** @nullable */
   brochureName?: string | null;
+  /** @nullable */
+  bannerPath?: string | null;
 }
 
 export interface ClubMemberInput {
