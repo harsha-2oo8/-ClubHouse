@@ -40,6 +40,7 @@ import type {
   ClubMemberInput,
   ClubUpdate,
   College,
+  CollegeClub,
   CollegeInput,
   CollegeJoinRequest,
   CollegeMeeting,
@@ -50,6 +51,7 @@ import type {
   CollegeRoleUpdate,
   CollegeSettings,
   CollegeSettingsInput,
+  CollegeUpdate,
   DashboardStats,
   EventRegistration,
   GetProjectMessagesParams,
@@ -800,6 +802,154 @@ export function useGetCollege<TData = Awaited<ReturnType<typeof getCollege>>, TE
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetCollegeQueryOptions(collegeId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateCollegeUrl = (collegeId: number,) => {
+
+
+
+
+  return `/api/colleges/${collegeId}`
+}
+
+/**
+ * @summary Update college details (College Head or platform admin)
+ */
+export const updateCollege = async (collegeId: number,
+    collegeUpdate: CollegeUpdate, options?: RequestInit): Promise<College> => {
+
+  return customFetch<College>(getUpdateCollegeUrl(collegeId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(collegeUpdate)
+  }
+);}
+
+
+
+
+export const getUpdateCollegeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCollege>>, TError,{collegeId: number;data: BodyType<CollegeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCollege>>, TError,{collegeId: number;data: BodyType<CollegeUpdate>}, TContext> => {
+
+const mutationKey = ['updateCollege'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCollege>>, {collegeId: number;data: BodyType<CollegeUpdate>}> = (props) => {
+          const {collegeId,data} = props ?? {};
+
+          return  updateCollege(collegeId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCollegeMutationResult = NonNullable<Awaited<ReturnType<typeof updateCollege>>>
+    export type UpdateCollegeMutationBody = BodyType<CollegeUpdate>
+    export type UpdateCollegeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update college details (College Head or platform admin)
+ */
+export const useUpdateCollege = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCollege>>, TError,{collegeId: number;data: BodyType<CollegeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCollege>>,
+        TError,
+        {collegeId: number;data: BodyType<CollegeUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCollegeMutationOptions(options));
+    }
+
+export const getGetCollegeClubsUrl = (collegeId: number,) => {
+
+
+
+
+  return `/api/colleges/${collegeId}/clubs`
+}
+
+/**
+ * @summary List a college's published clubs
+ */
+export const getCollegeClubs = async (collegeId: number, options?: RequestInit): Promise<CollegeClub[]> => {
+
+  return customFetch<CollegeClub[]>(getGetCollegeClubsUrl(collegeId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCollegeClubsQueryKey = (collegeId: number,) => {
+    return [
+    `/api/colleges/${collegeId}/clubs`
+    ] as const;
+    }
+
+
+export const getGetCollegeClubsQueryOptions = <TData = Awaited<ReturnType<typeof getCollegeClubs>>, TError = ErrorType<unknown>>(collegeId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCollegeClubs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCollegeClubsQueryKey(collegeId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCollegeClubs>>> = ({ signal }) => getCollegeClubs(collegeId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: collegeId !== null && collegeId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCollegeClubs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCollegeClubsQueryResult = NonNullable<Awaited<ReturnType<typeof getCollegeClubs>>>
+export type GetCollegeClubsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List a college's published clubs
+ */
+
+export function useGetCollegeClubs<TData = Awaited<ReturnType<typeof getCollegeClubs>>, TError = ErrorType<unknown>>(
+ collegeId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCollegeClubs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCollegeClubsQueryOptions(collegeId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

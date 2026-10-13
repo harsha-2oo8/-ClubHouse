@@ -40,7 +40,7 @@ function assetUrl(path?: string | null) {
   return `${base}/api/storage/${routePath}`;
 }
 
-function UploadButton({ accept, label, onUploaded, currentUrl }: {
+export function UploadButton({ accept, label, onUploaded, currentUrl }: {
   accept: string;
   label: string;
   onUploaded: (path: string, name: string) => void;

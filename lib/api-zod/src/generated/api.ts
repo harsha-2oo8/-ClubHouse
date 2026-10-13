@@ -225,6 +225,9 @@ export const ListCollegesResponseItem = zod.object({
   "location": zod.string(),
   "description": zod.string().nullish(),
   "logoUrl": zod.string().nullish(),
+  "bannerUrl": zod.string().nullish(),
+  "affiliation": zod.string().nullish(),
+  "establishedYear": zod.number().nullish(),
   "website": zod.string().nullish(),
   "status": zod.enum(['pending', 'approved', 'rejected']),
   "registeredBy": zod.string().nullish(),
@@ -252,6 +255,9 @@ export const RegisterCollegeResponse = zod.object({
   "location": zod.string(),
   "description": zod.string().nullish(),
   "logoUrl": zod.string().nullish(),
+  "bannerUrl": zod.string().nullish(),
+  "affiliation": zod.string().nullish(),
+  "establishedYear": zod.number().nullish(),
   "website": zod.string().nullish(),
   "status": zod.enum(['pending', 'approved', 'rejected']),
   "registeredBy": zod.string().nullish(),
@@ -274,6 +280,9 @@ export const GetCollegeResponse = zod.object({
   "location": zod.string(),
   "description": zod.string().nullish(),
   "logoUrl": zod.string().nullish(),
+  "bannerUrl": zod.string().nullish(),
+  "affiliation": zod.string().nullish(),
+  "establishedYear": zod.number().nullish(),
   "website": zod.string().nullish(),
   "status": zod.enum(['pending', 'approved', 'rejected']),
   "registeredBy": zod.string().nullish(),
@@ -281,6 +290,70 @@ export const GetCollegeResponse = zod.object({
   "projectCount": zod.number().optional(),
   "createdAt": zod.coerce.date()
 })
+
+
+/**
+ * @summary Update college details (College Head or platform admin)
+ */
+export const UpdateCollegeParams = zod.object({
+  "collegeId": zod.coerce.number()
+})
+
+export const updateCollegeBodyNameMin = 2;
+
+export const updateCollegeBodyLocationMin = 2;
+
+
+
+export const UpdateCollegeBody = zod.object({
+  "name": zod.string().min(updateCollegeBodyNameMin).optional(),
+  "location": zod.string().min(updateCollegeBodyLocationMin).optional(),
+  "description": zod.string().nullish(),
+  "logoUrl": zod.string().nullish(),
+  "bannerUrl": zod.string().nullish(),
+  "affiliation": zod.string().nullish(),
+  "establishedYear": zod.number().nullish(),
+  "website": zod.string().nullish()
+})
+
+export const UpdateCollegeResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "location": zod.string(),
+  "description": zod.string().nullish(),
+  "logoUrl": zod.string().nullish(),
+  "bannerUrl": zod.string().nullish(),
+  "affiliation": zod.string().nullish(),
+  "establishedYear": zod.number().nullish(),
+  "website": zod.string().nullish(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "registeredBy": zod.string().nullish(),
+  "memberCount": zod.number().optional(),
+  "projectCount": zod.number().optional(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List a college's published clubs
+ */
+export const GetCollegeClubsParams = zod.object({
+  "collegeId": zod.coerce.number()
+})
+
+export const GetCollegeClubsResponseItem = zod.object({
+  "id": zod.number(),
+  "collegeId": zod.number(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "logoPath": zod.string().nullish(),
+  "bannerPath": zod.string().nullish(),
+  "createdBy": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.coerce.date().optional(),
+  "updatedAt": zod.coerce.date().optional()
+})
+export const GetCollegeClubsResponse = zod.array(GetCollegeClubsResponseItem)
 
 
 /**
@@ -1940,6 +2013,9 @@ export const AdminGetCollegeRegistrationsResponseItem = zod.object({
   "location": zod.string(),
   "description": zod.string().nullish(),
   "logoUrl": zod.string().nullish(),
+  "bannerUrl": zod.string().nullish(),
+  "affiliation": zod.string().nullish(),
+  "establishedYear": zod.number().nullish(),
   "website": zod.string().nullish(),
   "status": zod.enum(['pending', 'approved', 'rejected']),
   "registeredBy": zod.string().nullish(),
@@ -1968,6 +2044,9 @@ export const AdminUpdateCollegeRegistrationResponse = zod.object({
   "location": zod.string(),
   "description": zod.string().nullish(),
   "logoUrl": zod.string().nullish(),
+  "bannerUrl": zod.string().nullish(),
+  "affiliation": zod.string().nullish(),
+  "establishedYear": zod.number().nullish(),
   "website": zod.string().nullish(),
   "status": zod.enum(['pending', 'approved', 'rejected']),
   "registeredBy": zod.string().nullish(),

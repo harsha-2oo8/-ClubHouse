@@ -1,13 +1,14 @@
 import { Router, Request, Response } from "express";
 import { getAuth } from "@clerk/express";
-import { db, collegesTable, collegeMembersTable, collegeJoinRequestsTable, moderatorApplicationsTable, collegeMeetingsTable, usersTable, projectsTable, projectMembersTable } from "@workspace/db";
-import { eq, and, ilike, sql, inArray } from "drizzle-orm";
+import { db, collegesTable, collegeMembersTable, collegeJoinRequestsTable, moderatorApplicationsTable, collegeMeetingsTable, usersTable, projectsTable, projectMembersTable, clubsTable } from "@workspace/db";
+import { eq, and, ilike, sql, inArray, asc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { notificationService } from "../lib/notify";
-import { getMemberRoles, collegeJoinAllowed } from "../lib/collegeRbac";
+import { getMemberRoles, collegeJoinAllowed, hasCollegePermission } from "../lib/collegeRbac";
 import { isAdmin } from "../lib/policy";
 import { getParam, getLimit } from "../lib/params";
 import { strictWriteLimit } from "../lib/rateLimit";
+import { recordAuditLog } from "../lib/audit";
 
 const router = Router();
 
@@ -32,6 +33,9 @@ async function formatCollege(c: typeof collegesTable.$inferSelect) {
     location: c.location,
     description: c.description,
     logoUrl: c.logoUrl,
+    bannerUrl: c.bannerUrl,
+    affiliation: c.affiliation,
+    establishedYear: c.establishedYear,
     website: c.website,
     status: c.status,
     registeredBy: c.registeredBy,
@@ -77,6 +81,65 @@ router.get("/:collegeId", async (req: Request, res: Response) => {
     return;
   }
   res.json(await formatCollege(colleges[0]));
+});
+
+// Update college details — College Head (manage_settings) or platform admin.
+router.patch("/:collegeId", requireAuth, strictWriteLimit(), async (req: Request, res: Response) => {
+  const { userId } = getAuth(req);
+  const id = parseInt(getParam(req, "collegeId"));
+  const colleges = await db.select().from(collegesTable).where(eq(collegesTable.id, id)).limit(1);
+  if (!colleges.length) {
+    res.status(404).json({ error: "College not found" });
+    return;
+  }
+  if (!(await hasCollegePermission(userId!, id, "college.manage_settings"))) {
+    res.status(403).json({ error: "Only the College Head or a platform admin can edit college details." });
+    return;
+  }
+  const { name, location, description, logoUrl, bannerUrl, affiliation, establishedYear, website } = req.body ?? {};
+  const updates: Partial<typeof collegesTable.$inferInsert> = { updatedAt: new Date() };
+  if (typeof name === "string" && name.trim().length >= 2) updates.name = name.trim();
+  if (typeof location === "string" && location.trim().length >= 2) updates.location = location.trim();
+  if (description !== undefined) updates.description = description || null;
+  if (logoUrl !== undefined) updates.logoUrl = logoUrl || null;
+  if (bannerUrl !== undefined) updates.bannerUrl = bannerUrl || null;
+  if (affiliation !== undefined) updates.affiliation = affiliation || null;
+  if (establishedYear !== undefined && establishedYear !== null) {
+    const year = Number(establishedYear);
+    const now = new Date().getFullYear();
+    if (!Number.isInteger(year) || year < 1700 || year > now) {
+      res.status(400).json({ error: `establishedYear must be an integer between 1700 and ${now}` });
+      return;
+    }
+    updates.establishedYear = year;
+  } else if (establishedYear === null) {
+    updates.establishedYear = null;
+  }
+  if (website !== undefined) updates.website = website || null;
+  try {
+    const [updated] = await db.update(collegesTable).set(updates).where(eq(collegesTable.id, id)).returning();
+    await recordAuditLog(req, {
+      action: "COLLEGE_UPDATED", entityType: "college", entityId: id,
+      before: colleges[0], after: updated, metadata: {},
+    });
+    res.json(await formatCollege(updated));
+  } catch {
+    res.status(409).json({ error: "A college with this name already exists." });
+  }
+});
+
+// Get clubs belonging to a college (public).
+router.get("/:collegeId/clubs", async (req: Request, res: Response) => {
+  const id = parseInt(getParam(req, "collegeId"));
+  const clubs = await db.select().from(clubsTable)
+    .where(and(eq(clubsTable.collegeId, id), eq(clubsTable.status, "published")))
+    .orderBy(asc(clubsTable.name));
+  res.json(clubs.map((c) => ({
+    id: c.id, collegeId: c.collegeId, name: c.name, description: c.description,
+    logoPath: c.logoPath, bannerPath: c.bannerPath,
+    createdBy: c.createdBy, status: c.status,
+    createdAt: c.createdAt, updatedAt: c.updatedAt,
+  })));
 });
 
 // Get members (adds identity type + assigned college roles for the Roles UI).

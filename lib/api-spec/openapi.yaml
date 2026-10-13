@@ -204,6 +204,51 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/College"
+    patch:
+      operationId: updateCollege
+      tags: [colleges]
+      summary: Update college details (College Head or platform admin)
+      security: [{ clerk: [] }]
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CollegeUpdate"
+      responses:
+        "200":
+          description: Updated college
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/College"
+
+  /colleges/{collegeId}/clubs:
+    get:
+      operationId: getCollegeClubs
+      tags: [colleges]
+      summary: List a college's published clubs
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Clubs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CollegeClub"
 
   /colleges/{collegeId}/members:
     get:
@@ -2115,12 +2160,42 @@ components:
         location:    { type: string }
         description: { type: ["string", "null"] }
         logoUrl:     { type: ["string", "null"] }
+        bannerUrl:   { type: ["string", "null"] }
+        affiliation: { type: ["string", "null"] }
+        establishedYear: { type: ["integer", "null"] }
         website:     { type: ["string", "null"] }
         status:      { type: string, enum: [pending, approved, rejected] }
         registeredBy: { type: ["string", "null"] }
         memberCount: { type: integer }
         projectCount: { type: integer }
         createdAt:   { type: string, format: date-time }
+
+    CollegeUpdate:
+      type: object
+      properties:
+        name:            { type: string, minLength: 2 }
+        location:        { type: string, minLength: 2 }
+        description:     { type: ["string", "null"] }
+        logoUrl:         { type: ["string", "null"] }
+        bannerUrl:       { type: ["string", "null"] }
+        affiliation:     { type: ["string", "null"] }
+        establishedYear: { type: ["integer", "null"] }
+        website:         { type: ["string", "null"] }
+
+    CollegeClub:
+      type: object
+      required: [id, collegeId, name, description, createdBy, status]
+      properties:
+        id:           { type: integer }
+        collegeId:    { type: integer }
+        name:         { type: string }
+        description:  { type: string }
+        logoPath:     { type: ["string", "null"] }
+        bannerPath:   { type: ["string", "null"] }
+        createdBy:    { type: string }
+        status:       { type: string }
+        createdAt:    { type: string, format: date-time }
+        updatedAt:    { type: string, format: date-time }
 
     CollegeInput:
       type: object

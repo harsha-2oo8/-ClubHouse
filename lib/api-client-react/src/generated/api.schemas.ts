@@ -95,6 +95,12 @@ export interface College {
   /** @nullable */
   logoUrl?: string | null;
   /** @nullable */
+  bannerUrl?: string | null;
+  /** @nullable */
+  affiliation?: string | null;
+  /** @nullable */
+  establishedYear?: number | null;
+  /** @nullable */
   website?: string | null;
   status: CollegeStatus;
   /** @nullable */
@@ -102,6 +108,40 @@ export interface College {
   memberCount?: number;
   projectCount?: number;
   createdAt: string;
+}
+
+export interface CollegeUpdate {
+  /** @minLength 2 */
+  name?: string;
+  /** @minLength 2 */
+  location?: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  logoUrl?: string | null;
+  /** @nullable */
+  bannerUrl?: string | null;
+  /** @nullable */
+  affiliation?: string | null;
+  /** @nullable */
+  establishedYear?: number | null;
+  /** @nullable */
+  website?: string | null;
+}
+
+export interface CollegeClub {
+  id: number;
+  collegeId: number;
+  name: string;
+  description: string;
+  /** @nullable */
+  logoPath?: string | null;
+  /** @nullable */
+  bannerPath?: string | null;
+  createdBy: string;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CollegeInput {
